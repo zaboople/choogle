@@ -1,0 +1,137 @@
+<?xml version="1.0"?>
+<project name="klonk" basedir="." default="help">
+
+  <!--**********-->
+  <!--PROPERTIES-->
+  <!--**********-->
+
+  <!--Properties: arbitrary environment prefix:-->
+  <property environment="env"/>
+
+  <!--Properties: directories:-->
+  <property file="build.properties"/>
+  <property name="java.dir" value="java"/>
+  <property name="build.dir" value="build"/>
+  <property name="dist.dir" value="dist"/>
+  <property name="lib.dir" value="lib"/>
+  <property name="appname" value="choogle"/>
+
+  <property name="jar.dir" value="${lib.dir}/jar"/>
+
+
+  <property name="version" value="1"/>
+  <property name="appname.version" value="${appname}.${version}"/>
+
+  <path id="classpath">
+    <fileset dir="${jar.dir}" includes="**/*.jar"/>
+  </path>
+
+
+  <!--**************-->
+  <!--TARGETS: HELP -->
+  <!--**************-->
+
+  <target name="help">
+    <echo>
+  clean:
+    Deletes all generated classes etc.
+  jar:
+    Compiles and creates dist/${appname}.jar file from contents of ./build. This is an executable
+    jar, so double-clicking it should start the application if your java environment is properly
+    configured.
+  dist:
+    Creates source zip &amp; binaries zip in dist directory. This does not include native
+    executables, however.
+
+    </echo>
+  </target>
+
+  <!--****************-->
+  <!--TARGETS: CLEAN  -->
+  <!--****************-->
+
+  <target name="clean" description="Clean output directories">
+    <delete dir="javadoc"/>
+    <delete dir ="${build.dir}"/>
+    <delete dir ="${dist.dir}"/>
+  </target>
+
+
+  <!--****************-->
+  <!--TARGETS: BUILD  -->
+  <!--****************-->
+
+  <target name="compile" description="Compile main source tree java files">
+    <mkdir dir="${build.dir}"/>
+
+    <!--Compile:-->
+    <javac destdir="${build.dir}"
+          debug="true"
+          failonerror="true"
+          deprecation="on"
+          srcdir="${java.dir}"
+          includeantruntime="false">
+      <compilerarg value="-Xlint"/>
+      <classpath refid="classpath"/>
+    </javac>
+
+    <!--Copies the help.txt & about.txt file:-->
+    <copy todir="${build.dir}">
+      <fileset dir="${java.dir}" includes="**/*.txt,**/*.html"/>
+    </copy>
+  </target>
+
+  <target name="javadoc" description="JavaDoc">
+    <mkdir dir="javadoc"/>
+    <javadoc sourcepath="java" access="public" destdir="javadoc" packagenames="org.**,com.**">
+      <classpath refid="classpath"/>
+      <fileset dir="java">
+        <include name="**/*.java"/>
+      </fileset>
+    </javadoc>
+  </target>
+
+
+  <target name="jar" depends="compile">
+    <mkdir dir ="${dist.dir}"/>
+    <jar basedir="./build" destfile="dist/${appname}.jar">
+
+      <!--Unzip all the jars and zip them into our own jar:-->
+      <zipgroupfileset dir="${jar.dir}" includes="**/*.jar" />
+
+      <manifest>
+        <attribute name="Built-By" value="Mr Motte" />
+        <attribute name="Main-Class" value="org.tmotte.choogle.Main" />
+      </manifest>
+    </jar>
+  </target>
+
+
+
+  <!-- ********************* -->
+  <!-- TARGETS: DISTRIBUTION -->
+  <!-- ********************* -->
+
+  <target name="dist" depends="_dist.src,_dist.bin"/>
+
+
+
+  <target name="_dist.bin" depends="jar">
+    <mkdir dir ="${dist.dir}/bin"/>
+    <copy file="dist/${appname}.jar"   tofile="${dist.dir}/bin/${appname.version}.jar"/>
+    <zip destfile="${dist.dir}/${appname.version}.zip">
+      <zipfileset dir="${dist.dir}/bin" prefix="${appname.version}"/>
+    </zip>
+    <!--Cleanup:-->
+    <delete file="dist/klonk.jar"/>
+  </target>
+
+  <target name="_dist.src" depends="clean">
+    <mkdir dir ="${dist.dir}"/>
+    <zip destfile="dist/${appname.version}.src.zip">
+      <zipfileset dir="." prefix="${appname.version}.src"
+                  excludes=".git/**/*,.git"/>
+    </zip>
+  </target>
+
+</project>

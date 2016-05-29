@@ -1,0 +1,12 @@
+Buildfile: build.xml
+
+compile:
+    [javac] Compiling 1 source file to D:\troy\dev\choogle\build
+
+jar:
+      [jar] Building jar: D:\troy\dev\choogle\dist\choogle.jar
+
+BUILD SUCCESSFUL
+Total time: 1 second
+http://www.npr.org STARTING...
+http://www.npr.org COMPLETE

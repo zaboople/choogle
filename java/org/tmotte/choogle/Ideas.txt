@@ -1,0 +1,30 @@
+
+
+
+
+queue.add(
+  (prev, context) -> {
+    return thing
+  }
+).add(
+  (prev, context) -> {
+    return thing
+  }
+)
+
+
+
+class PrevContext<I> {
+  Async a;
+  I t;
+  public PrevContext(Async a, RequestHandler<Object,Future<O>> rh){
+    this.a=a;
+  }
+  public <I,O> PrevContext<O> add(RequestHandler<I,O> rh) {
+  }
+}
+
+interface RequestHandler<I, O> {
+  public <O> handle(I i, Async async);
+}
+
