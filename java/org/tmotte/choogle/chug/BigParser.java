@@ -106,7 +106,7 @@ class BigParser {
 
     // CONVENIENCE FUNCTIONS USED BY PARSERS:
     private short tagNameCompleteAndGarbaged() {
-      record &= reader.tagNameComplete();
+      record=record && reader.tagNameComplete();
       return TAG_GARBAGED;
     }
     private short tagCompleteCleanStart(boolean selfClosing) {
@@ -123,17 +123,17 @@ class BigParser {
             record=reader.tagNameStart();
             return FIRST_AFTER_START_ANGLE;
           }
-          record &= reader.text(c);
+          record=record && reader.text(c);
           return CLEAN_START;
 
         case FIRST_AFTER_START_ANGLE:
           // First char after <
           if (c=='/'){
-            record &= reader.tagIsClosing();
+            record=record && reader.tagIsClosing();
             return TAG_IS_CLOSING;
           }
           if (c=='>') {
-            record &= reader.tagNameComplete();
+            record=record && reader.tagNameComplete();
             return tagCompleteCleanStart(false);
           }
           if (c=='=' || c=='\'' || c=='"')
@@ -149,20 +149,20 @@ class BigParser {
         case TAG_IS_NAMING:
           // Still after <, getting tag name:
           if (isWhite(c)) {
-            record &=reader.tagNameComplete();
+            record=record && reader.tagNameComplete();
             return WAITING_FOR_TAG_ATTRS;
           }
           if (c=='/') {
-            record &= reader.tagNameComplete();
+            record=record && reader.tagNameComplete();
             return ELEMENT_SELF_CLOSING;
           }
           if (c=='>') {
-            record &= reader.tagNameComplete();
+            record=record && reader.tagNameComplete();
             return tagCompleteCleanStart(false);
           }
           if (c=='=' || c=='\'' || c=='"')
             return tagNameCompleteAndGarbaged();
-          record &= reader.tagName(c);
+          record=record && reader.tagName(c);
           return TAG_IS_NAMING;
 
         case WAITING_FOR_TAG_ATTRS:
@@ -180,26 +180,26 @@ class BigParser {
         case IN_ATTR_NAME:
           // Right after "<tag  x"
           if (c=='=') {
-            recordAttr &= reader.attrNameComplete();
+            recordAttr=recordAttr && reader.attrNameComplete();
             return AFTER_ATTR_EQUALS;
           }
           if (c=='\'') {
-            recordAttr &= reader.attrNameComplete();
+            recordAttr=recordAttr && reader.attrNameComplete();
             return AFTER_ATTR_QUOTE;
           }
           if (c=='"') {
-            recordAttr &= reader.attrNameComplete();
+            recordAttr=recordAttr && reader.attrNameComplete();
             return AFTER_ATTR_DBL_QUOTE;
           }
           if (c==' ') {
-            recordAttr &= reader.attrNameComplete();
+            recordAttr=recordAttr && reader.attrNameComplete();
             return AFTER_ATTR_NAME;
           }
           if (c=='>') {
-            recordAttr &= reader.attrNameComplete();
+            recordAttr=recordAttr && reader.attrNameComplete();
             return tagCompleteCleanStart(false);
           }
-          recordAttr &= reader.attrName(c);
+          recordAttr=recordAttr && reader.attrName(c);
           return IN_ATTR_NAME;
 
         case AFTER_ATTR_NAME:
@@ -218,49 +218,49 @@ class BigParser {
         case AFTER_ATTR_EQUALS:
           // Right after "<tag xxx="
           if (c=='"')  {
-            recordAttr &= reader.attrValueStart();
+            recordAttr=recordAttr && reader.attrValueStart();
             return AFTER_ATTR_DBL_QUOTE;
           }
           if (c=='\'') {
-            recordAttr &= reader.attrValueStart();
+            recordAttr=recordAttr && reader.attrValueStart();
             return AFTER_ATTR_QUOTE;
           }
           if (isWhite(c)) return AFTER_ATTR_EQUALS;
           if (c=='>')     return tagCompleteCleanStart(false);
           if (c=='/')     return ELEMENT_SELF_CLOSING;
-          recordAttr &= reader.attrValueStart();
+          recordAttr=recordAttr && reader.attrValueStart();
           return parse(c, ATTR_VALUE_NO_QUOTE);
 
         case AFTER_ATTR_DBL_QUOTE:
           if (c=='"') {
-            recordAttr &= reader.attrValueComplete();
+            recordAttr=recordAttr && reader.attrValueComplete();
             return WAITING_FOR_TAG_ATTRS;
           }
-          recordAttr &= reader.attrValue(c);
+          recordAttr=recordAttr && reader.attrValue(c);
           return AFTER_ATTR_DBL_QUOTE;
 
         case AFTER_ATTR_QUOTE:
           if (c=='\'') {
-            recordAttr &= reader.attrValueComplete();
+            recordAttr=recordAttr && reader.attrValueComplete();
             return WAITING_FOR_TAG_ATTRS;
           }
-          recordAttr &= reader.attrValue(c);
+          recordAttr=recordAttr && reader.attrValue(c);
           return AFTER_ATTR_QUOTE;
 
         case ATTR_VALUE_NO_QUOTE:
           if (c==' ') {
-            recordAttr &= reader.attrValueComplete();
+            recordAttr=recordAttr && reader.attrValueComplete();
             return WAITING_FOR_TAG_ATTRS;
           }
           if (c=='/') {
-            recordAttr &= reader.attrValueComplete();
+            recordAttr=recordAttr && reader.attrValueComplete();
             return ELEMENT_SELF_CLOSING;
           }
           if (c=='>') {
-            recordAttr &= reader.attrValueComplete();
+            recordAttr=recordAttr && reader.attrValueComplete();
             return tagCompleteCleanStart(false);
           }
-          recordAttr &= reader.attrValue(c);
+          recordAttr=recordAttr && reader.attrValue(c);
           return ATTR_VALUE_NO_QUOTE;
 
         case ELEMENT_SELF_CLOSING:
@@ -271,15 +271,15 @@ class BigParser {
         case TAG_IS_CLOSING:
           // After the "/" in "</....>"
           if (c=='>'){
-            record &= reader.tagNameComplete();
+            record=record && reader.tagNameComplete();
             return tagCompleteCleanStart(false);
           }
-          record &= reader.tagName(c);
+          record=record && reader.tagName(c);
           return TAG_IS_CLOSING;
 
         case AFTER_BANG:
           // <!
-          record &= reader.tagNameComplete();
+          record=record && reader.tagNameComplete();
           if (c=='[') return CDATA_AFTER_1_BRACK;
           if (c=='-') return COMMENT_AFTER_1_DASH;
           if (c==' ') return AFTER_BANG;
@@ -299,28 +299,28 @@ class BigParser {
       switch(mode) {
         case COMMENT_AFTER_1_DASH:
           if (c=='-') {
-            record&=reader.commentStart();
+            record=record && reader.commentStart();
             return COMMENT_TEXT;
           }
-          record&=reader.commentStart();
+          record=record && reader.commentStart();
           return parseComment(c, COMMENT_TEXT);
 
         case COMMENT_TEXT:
           if (c=='-') return COMMENT_CLOSE_AFTER_1_DASH;
-          record &= reader.comment(c);
+          record=record && reader.comment(c);
           return COMMENT_TEXT;
 
         case COMMENT_CLOSE_AFTER_1_DASH:
           if (c=='-') return COMMENT_CLOSE_AFTER_2_DASH;
-          record &= (reader.comment('-') && reader.comment(c));
+          record=record && reader.comment('-') && reader.comment(c);
           return COMMENT_TEXT;
 
         case COMMENT_CLOSE_AFTER_2_DASH:
           if (c=='>') {
-            record &= reader.commentComplete();
+            record=record && reader.commentComplete();
             return tagCompleteCleanStart(false);
           }
-          record &= (reader.comment('-') && reader.comment('-') && reader.comment(c));
+          record=record && reader.comment('-') && reader.comment('-') && reader.comment(c);
           return COMMENT_TEXT;
 
         default:
@@ -347,7 +347,7 @@ class BigParser {
           return tagNameCompleteAndGarbaged();
         case CDATA_AFTER_A2:
           if (c=='[') {
-            record &= reader.cdataStart();
+            record=record && reader.cdataStart();
             return CDATA_TEXT;
           }
           return tagNameCompleteAndGarbaged();
@@ -359,14 +359,14 @@ class BigParser {
 
         case CDATA_AFTER_CLOSE_BRACK_1:
           if (c==']') return CDATA_AFTER_CLOSE_BRACK_2;
-          record &= (reader.cdata(']') && reader.cdata(c));
+          record=record && reader.cdata(']') && reader.cdata(c);
           return CDATA_TEXT;
         case CDATA_AFTER_CLOSE_BRACK_2:
           if (c=='>') {
-            record &= reader.cdataComplete();
+            record=record && reader.cdataComplete();
             return tagCompleteCleanStart(false);
           }
-          record &= (reader.cdata(']') && reader.cdata(']') && reader.cdata(c));
+          record=record && reader.cdata(']') && reader.cdata(']') && reader.cdata(c);
           return CDATA_TEXT;
         default:
           throw new RuntimeException("Unexpected: "+mode);

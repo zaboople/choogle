@@ -21,10 +21,6 @@ class StringMatcher {
     this.stop=smc.lchars.length;
     setChar(0);
   }
-  private void setChar(int index) {
-    currL=smc.lchars[index];
-    currU=smc.uchars[index];
-  }
   public int match(char c){
     if (currL==c || currU==c){
       currIndex++;
@@ -37,6 +33,11 @@ class StringMatcher {
     }
     setChar(currIndex=0);
     return noMatch;
+  }
+
+  private void setChar(int index) {
+    currL=smc.lchars[index];
+    currU=smc.uchars[index];
   }
 
 }

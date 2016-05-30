@@ -3,20 +3,18 @@ package org.tmotte.choogle.chug;
 class BigParserTester {
 
   final static class BigPrinter implements BigParserListener {
+    boolean yes=true, yesAttr=true;
     private boolean print(char c) {
-      System.out.print(c); return true;
+      System.out.print(c); return yes;
     }
     private boolean print(String s) {
-      System.out.print(s); return true;
+      System.out.print(s); return yes;
     }
-    private boolean println(){
-      System.out.println(); return true;
+    private boolean printAttr(char c) {
+      System.out.print(c); return yesAttr;
     }
-    private boolean println(char c){
-      System.out.println(c); return true;
-    }
-    private boolean println(String c){
-      System.out.println(c); return true;
+    private boolean printAttr(String s) {
+      System.out.print(s); return yesAttr;
     }
 
     public boolean text(char c){print("-");return print(c);}
@@ -27,16 +25,16 @@ class BigParserTester {
     public boolean tagNameComplete(){return print("");}
     public boolean tagComplete(boolean selfClosing){
       if (selfClosing) print("/");
-      return println(">");
+      return print(">\n");
     }
 
-    public boolean attrNameStart(){return print(" [");}
-    public boolean attrName(char c){return print(c);}
-    public boolean attrNameComplete(){return print("]");}
+    public boolean attrNameStart(){return printAttr(" [");}
+    public boolean attrName(char c){return printAttr(c);}
+    public boolean attrNameComplete(){return printAttr("]");}
 
-    public boolean attrValueStart(){return print("='");}
-    public boolean attrValue(char c){return print(c);}
-    public boolean attrValueComplete(){return print("'");}
+    public boolean attrValueStart(){return printAttr("='");}
+    public boolean attrValue(char c){return printAttr(c);}
+    public boolean attrValueComplete(){return printAttr("'");}
 
     public boolean cdataStart(){return print("CDATA: ");}
     public boolean cdata(char c){return print(c);}
@@ -47,9 +45,11 @@ class BigParserTester {
     public boolean commentComplete(){return print("END COMMENT");}
 
   }
+
   public static void main(String[] args) {
+    BigPrinter prn=new BigPrinter();
     System.out.println("=========");
-    BigParser bp=new BigParser(new BigPrinter());
+    BigParser bp=new BigParser(prn);
     bp.add("<abc pig=booger pig2=\"mi\">hello</abc><div x>ee</div>");
     System.out.println("=========");
     bp.add("<div><![CDATA[  a.type=<fudge></bomb> ] ] ]>  ]]> <!--A comment-- -- ->--></div>");
@@ -58,6 +58,15 @@ class BigParserTester {
     bp.add("zoom ");
     bp.add(" wheels='off' tires=\"roof\"/><l>hi<b></l>");
     System.out.println("=========");
-    bp.add("<p wheels =  off    tires =\"roof\" notion=   \"bizarre\">");
+    bp.add("<p wheels =  off    tires =\"roof\" notion=   \"bizarre   \">");
+
+    System.out.println("=========");
+    prn.yes=false;
+    bp.add("<tag val='yes'>");
+    System.out.println("=========");
+    prn.yes=true;
+    prn.yesAttr=false;
+    bp.add("<tag val='yes'>");
+    System.out.println("=========");
   }
 }
