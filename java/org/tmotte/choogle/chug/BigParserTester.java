@@ -18,24 +18,29 @@ class BigParserTester {
     private boolean println(String c){
       System.out.println(c); return true;
     }
-    public boolean text(char c){return print(c);}
 
-    public boolean tagNameStart(){return print("<");}
+    public boolean text(char c){print("-");return print(c);}
+
+    public boolean tagNameStart(){return print("\nTAG: <");}
+    public boolean tagIsClosing(){return print("/");}
     public boolean tagName(char c){return print(c);}
-    public boolean tagNameComplete(){return print(" ");}
-    public boolean tagComplete(boolean selfClosing){return println(">  SC="+selfClosing+"\n");}
+    public boolean tagNameComplete(){return print("");}
+    public boolean tagComplete(boolean selfClosing){
+      if (selfClosing) return println("/>");
+      else return println(">");
+    }
 
-    public boolean attrNameStart(){return print("  ");}
+    public boolean attrNameStart(){return print(" [");}
     public boolean attrName(char c){return print(c);}
-    public boolean attrNameComplete(){return print(" ");}
+    public boolean attrNameComplete(){return print("]");}
 
-    public boolean attrValueStart(){return print(" = '");}
+    public boolean attrValueStart(){return print("='");}
     public boolean attrValue(char c){return print(c);}
     public boolean attrValueComplete(){return print("'");}
 
-    public boolean cdataStart(){return true;}
-    public boolean cdata(char c){return true;}
-    public boolean cdataComplete(){return true;}
+    public boolean cdataStart(){return println("\nCDATA:");}
+    public boolean cdata(char c){return print(c);}
+    public boolean cdataComplete(){return println("END CDATA");}
 
     public boolean commentStart(){return true;}
     public boolean comment(char c){return true;}
@@ -44,6 +49,8 @@ class BigParserTester {
   }
   public static void main(String[] args) {
     BigParser bp=new BigParser(new BigPrinter());
-    bp.add("<a pig=booger pig2=\"mi\">hello</a>");
+    bp.add("<abc pig=booger pig2=\"mi\">hello</abc><div x>ee</div>");
+    System.out.println("=========");
+    bp.add("<![CDATA[  a.type=<fudge></bomb> ] ] ]>  ]]>");
   }
 }

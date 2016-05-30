@@ -4,6 +4,8 @@ interface BigParserListener {
   public boolean text(char c);
 
   public boolean tagNameStart();
+  /** Means the tag is of the form </foo>, not <foo ... /> or <foo ...> */
+  public boolean tagIsClosing();
   public boolean tagName(char c);
   public boolean tagNameComplete();
   public boolean tagComplete(boolean selfClosing);

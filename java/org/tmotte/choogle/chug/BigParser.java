@@ -20,7 +20,8 @@ class BigParser {
     AFTER_ATTR_QUOTE       =10,
     ATTR_VALUE_NO_QUOTE    =11,
     ELEMENT_SELF_CLOSING   =12,
-    AFTER_BANG             =13,
+    TAG_IS_CLOSING         =13,
+    AFTER_BANG             =14,
     TAG_GARBAGED           =19,
 
     CDATA_AFTER_1_BRACK      =32,
@@ -77,8 +78,8 @@ class BigParser {
       case FIRST_AFTER_START_ANGLE:
         // First char after <
         if (c=='/'){
-          recording &= reader.tagNameComplete();
-          return ELEMENT_SELF_CLOSING;
+          recording &= reader.tagIsClosing();
+          return TAG_IS_CLOSING;
         }
         if (c=='>') {
           recording &= reader.tagNameComplete();
@@ -146,6 +147,11 @@ class BigParser {
         if (c==' ') {
           recording &= reader.attrNameComplete();
           return AFTER_ATTR_NAME;
+        }
+        if (c=='>') {
+          recording &= reader.attrNameComplete();
+          recording = reader.tagComplete(false);
+          return CLEAN_START;
         }
         recording &= reader.attrName(c);
         return IN_ATTR_NAME;
@@ -221,6 +227,17 @@ class BigParser {
         }
         return ELEMENT_SELF_CLOSING;
 
+
+      case TAG_IS_CLOSING:
+        // After </
+        if (c=='>'){
+          recording&=reader.tagNameComplete();
+          recording=reader.tagComplete(false);
+          return CLEAN_START;
+        }
+        recording &= reader.tagName(c);
+        return TAG_IS_CLOSING;
+
       case AFTER_BANG:
         // <!
         recording &= reader.tagNameComplete();
@@ -231,7 +248,7 @@ class BigParser {
 
       case TAG_GARBAGED:
         if (c=='>') {
-          recording &= reader.tagComplete(true);
+          recording &= reader.tagComplete(false);
           return CLEAN_START;
         }
         return TAG_GARBAGED;
@@ -269,7 +286,7 @@ class BigParser {
       case COMMENT_CLOSE_AFTER_2_DASH:
         if (c=='>') {
           if (recording) reader.commentComplete();
-          recording = reader.tagComplete(true);
+          recording = reader.tagComplete(false);
           return CLEAN_START;
         }
         recording &= (reader.comment('-') && reader.comment('-') && reader.comment(c));
@@ -316,7 +333,7 @@ class BigParser {
       case CDATA_AFTER_CLOSE_BRACK_2:
         if (c=='>') {
           recording &= reader.cdataComplete();
-          recording = reader.tagComplete(true);
+          recording = reader.tagComplete(false);
           return CLEAN_START;
         }
         recording &= (reader.cdata(']') && reader.cdata(']') && reader.cdata(c));
