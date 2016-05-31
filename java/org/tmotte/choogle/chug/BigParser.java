@@ -142,7 +142,7 @@ class BigParser {
             return FIRST_AFTER_START_ANGLE;
           if (c=='!')
             return AFTER_BANG;
-          reader.tagName(c);
+          record=record && reader.tagName(c);
           return TAG_IS_NAMING;
 
 
