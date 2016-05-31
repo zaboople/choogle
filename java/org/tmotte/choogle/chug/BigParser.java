@@ -7,10 +7,12 @@ package org.tmotte.choogle.chug;
  * start/end and 1-character-at-a-time signals for the data within them.
  *
  * Note that it assumes that if your listener:
- *   isn't interested in tag name, it isn't interested in attributes.
- *   isn't interested in attr name, it isn't interested in attr value.
+ *   - isn't interested in tag name, it isn't interested in attributes.
+ *   - isn't interested in attr name, it isn't interested in attr value.
  * The listener will *always* be notified at the beginning & end of a tag, but anytime
- * it loses interest (by returning false) that will
+ * it loses interest (by returning false) it will stop getting notifications temporarily.
+ *
+ * Another highly internal note: &= is not short-circuited!!! Don't try that.
  */
 class BigParser {
 
@@ -23,7 +25,11 @@ class BigParser {
     return c==' ' || c=='\t' || c=='\n' || c=='\r';
   }
 
-  /** These are the different values for mode. */
+  /**
+   * These are the different values for mode.
+   * Note they are divided up into a 64 block, a 16 block and a 0 block.
+   * The add() function does an if-else-if-else on the blocks.
+   */
   private final static short
     CLEAN_START            =65,
     FIRST_AFTER_START_ANGLE=66,
@@ -372,7 +378,5 @@ class BigParser {
           throw new RuntimeException("Unexpected: "+mode);
       }
     }
-
   }
-
 }
