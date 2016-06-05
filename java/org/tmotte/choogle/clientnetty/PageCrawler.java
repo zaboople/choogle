@@ -13,9 +13,9 @@ import java.util.ArrayList;
 import java.util.List;
 import org.tmotte.choogle.chug.AnchorReader;
 import org.tmotte.choogle.chug.Link;
+import org.tmotte.common.text.HTMLParser;
 
-public final class SimpleReceiver implements Chreceiver {
-
+public final class PageCrawler implements Chreceiver {
 
   public static void read(List<String> uris) throws Exception {
     EventLoopGroup elGroup=new NioEventLoopGroup();
@@ -26,7 +26,7 @@ public final class SimpleReceiver implements Chreceiver {
           new ChClient(
             elGroup,
             u.startsWith("https"),
-            new SimpleReceiver(u)
+            new PageCrawler(u)
           ).read(u)
         );
       for (ChannelFuture f : futures){
@@ -39,10 +39,10 @@ public final class SimpleReceiver implements Chreceiver {
   }
 
   private List<Link> urls=new ArrayList<>(100);
-  private AnchorReader collector=new AnchorReader(urls);
+  private HTMLParser anchorBP=AnchorReader.withParser(urls);
   private String uri;
 
-  public SimpleReceiver(String uri) {
+  public PageCrawler(String uri) {
     this.uri=uri;
   }
   public void start(HttpResponse headers){
@@ -51,7 +51,9 @@ public final class SimpleReceiver implements Chreceiver {
   }
   public void body(HttpContent body){
     String s=body.content().toString(CharsetUtil.UTF_8);
-    collector.add(s);
+    int len=s.length();
+    for (int i=0; i<len; i++)
+      anchorBP.add(s.charAt(i));
   }
   public void complete(){
     System.out.print(uri);
@@ -59,5 +61,4 @@ public final class SimpleReceiver implements Chreceiver {
     for (Link v : urls)
       System.out.println(v);
   }
-
 }

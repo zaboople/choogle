@@ -1,8 +1,8 @@
-package org.tmotte.choogle.chug;
+package org.tmotte.common.text;
 
-class BigParserTester {
+class HTMLParserTest {
 
-  final static class BigPrinter implements BigParserListener {
+  final static class BigPrinter implements HTMLParserListener {
     boolean yes=true, yesAttr=true;
     private boolean print(char c) {
       System.out.print(c); return yes;
@@ -49,7 +49,7 @@ class BigParserTester {
   public static void main(String[] args) {
     BigPrinter prn=new BigPrinter();
     System.out.println("=========");
-    BigParser bp=new BigParser(prn);
+    HTMLParser bp=new HTMLParser(prn);
     bp.add("<abc pig=booger pig2=\"mi\">hello</abc><div x>ee</div>");
     System.out.println("=========");
     bp.add("<div><![CDATA[  a.type=<fudge></bomb> ] ] ]>  ]]> <!--A comment-- -- ->--></div>");

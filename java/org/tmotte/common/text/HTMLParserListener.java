@@ -1,6 +1,6 @@
-package org.tmotte.choogle.chug;
+package org.tmotte.common.text;
 
-interface BigParserListener {
+public interface HTMLParserListener {
   public boolean text(char c);
 
   public boolean tagNameStart();

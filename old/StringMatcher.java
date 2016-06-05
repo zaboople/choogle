@@ -25,16 +25,19 @@ class StringMatcher {
     if (currL==c || currU==c){
       currIndex++;
       if (currIndex==stop) {
-        setChar(currIndex=0);
+        reset();
         return done;
       }
       setChar(currIndex);
       return match;
     }
-    setChar(currIndex=0);
+    reset();
     return noMatch;
   }
-
+  public void reset() {
+    if (currIndex!=0)
+      setChar(currIndex=0);
+  }
   private void setChar(int index) {
     currL=smc.lchars[index];
     currU=smc.uchars[index];

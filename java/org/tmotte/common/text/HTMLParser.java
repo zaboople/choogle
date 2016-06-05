@@ -1,20 +1,28 @@
-package org.tmotte.choogle.chug;
+package org.tmotte.common.text;
 
 /**
- * This is an ultra-ultra-minimal HTML parser. It doesn't know anything about HTML, just
- * about tags (open, close & self-closing), attributes, comments, & cdata. Usefulness
- * is obtained by providing it a listener that receives signals for tag/attribute/comment/cdata
- * start/end and 1-character-at-a-time signals for the data within them.
+ * <p>
+ * This is an ultra-ultra-minimal HTML parser: <ul>
+ *   <li>Since it only processes one character at a time, it can run with very little memory.
+ *   <li>It doesn't know anything about HTML, just tags (open, close & self-closing), attributes,
+ *    comments, and cdata.
+ * <ul/>
  *
- * Note that it assumes that if your listener:
- *   - isn't interested in tag name, it isn't interested in attributes.
- *   - isn't interested in attr name, it isn't interested in attr value.
+ * The dirty work must be done by your own listener, which will receives tag/attribute/comment/cdata
+ * start/end signals, as well as characters for the data within them.
+ *
+ * <p>
+ * Note that HTMLParser assumes that if your listener: <ul>
+ *   <li>isn't interested in the tag name, it isn't interested in attributes.
+ *   <li>isn't interested in an attribute name, it isn't interested in the attribute value.</ul>
  * The listener will *always* be notified at the beginning & end of a tag, but anytime
  * it loses interest (by returning false) it will stop getting notifications temporarily.
  *
- * Another highly internal note: &= is not short-circuited!!! Don't try that.
  */
-class BigParser {
+public class HTMLParser {
+
+  // NOTE: &= is not short-circuited!!! Don't try that.
+
 
   //////////////////////////////
   // STATIC FUNCTIONS & DATA: //
@@ -67,26 +75,37 @@ class BigParser {
 
   private final InnerParser inner;
   private short mode=CLEAN_START;
-  public BigParser(BigParserListener reader) {
+  public HTMLParser(HTMLParserListener reader) {
     inner=new InnerParser(reader);
   }
 
-  //////////////////////////
-  // *ONE* PUBLIC METHOD: //
-  //////////////////////////
+  /////////////////////
+  // PUBLIC METHODS: //
+  /////////////////////
 
-  public BigParser add(String s) {
+  /** Add one character of a document */
+  public HTMLParser add(char c) {
+    if (mode>=64)
+      mode=inner.parse(c, mode);
+    else
+    if (mode>=16)
+      mode=inner.parseCData(c, mode);
+    else
+      mode=inner.parseComment(c, mode);
+    return this;
+  }
+
+  /** A convenience function to add a group of characters to a document */
+  public HTMLParser add(String s) {
     int len=s.length();
-    for (int i=0; i<len; i++){
-      char c=s.charAt(i);
-      if (mode>=64)
-        mode=inner.parse(c, mode);
-      else
-      if (mode>=16)
-        mode=inner.parseCData(c, mode);
-      else
-        mode=inner.parseComment(c, mode);
-    }
+    for (int i=0; i<len; i++)
+      add(s.charAt(i));
+    return this;
+  }
+
+  public HTMLParser reset() {
+    mode=CLEAN_START;
+    inner.reset();
     return this;
   }
 
@@ -102,15 +121,21 @@ class BigParser {
   private static class InnerParser {
 
     // INSTANCE VARIABLES AND CONSTRUCTOR:
-    private final BigParserListener reader;
+    private final HTMLParserListener reader;
     private boolean
       record=true,
       recordAttr=true;
-    InnerParser(BigParserListener reader) {
+    InnerParser(HTMLParserListener reader) {
       this.reader=reader;
     }
 
-    // CONVENIENCE FUNCTIONS USED BY PARSERS:
+    // CALLED BY CONTAINER'S reset():
+    void reset(){
+      record=true;
+      recordAttr=true;
+    }
+
+    // INTERNAL CONVENIENCE FUNCTIONS:
     private short tagNameCompleteAndGarbaged() {
       record=record && reader.tagNameComplete();
       return TAG_GARBAGED;

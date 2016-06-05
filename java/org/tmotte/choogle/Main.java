@@ -3,7 +3,7 @@ import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletHandler;
 import org.tmotte.choogle.servenetty.MyServer;
 import org.tmotte.choogle.clientnetty.ChClient;
-import org.tmotte.choogle.clientnetty.SimpleReceiver;
+import org.tmotte.choogle.clientnetty.PageCrawler;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 
@@ -22,7 +22,7 @@ public class Main {
         MyServer.serve();
       else
       if (arg0.equals("--client") || arg0.startsWith("-c"))
-        SimpleReceiver.read(
+        PageCrawler.read(
           java.util.Arrays.asList(args).subList(1, args.length)
         );
       else

@@ -1,5 +1,10 @@
-package org.tmotte.choogle.chug;
-class StringMatcherChars {
+package org.tmotte.common.text;
+
+/**
+ * This is the stateless part of StringMatcher, so it's kept separate, so you
+ * can instantiate it as a thread-safe static variable.
+ */
+public class StringMatcherChars {
   char[] lchars;
   char[] uchars;
   public StringMatcherChars(String match) {
