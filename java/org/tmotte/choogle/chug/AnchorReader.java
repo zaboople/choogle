@@ -5,31 +5,41 @@ import org.tmotte.common.text.HTMLParser;
 import org.tmotte.common.text.StringMatcher;
 import org.tmotte.common.text.StringMatcherChars;
 
-/** This is self-resetting; the tagNameStart() function automatically reinitializes state. */
-public class AnchorReader implements HTMLParserListener {
+/** FIXME **NOT** SELF-RESETTING */
+public final class AnchorReader {
 
   /////////////////////////////////////
   // STATIC VARIABLES AND FUNCTIONS: //
   /////////////////////////////////////
 
   private static StringMatcherChars
-    smcHref=new StringMatcherChars("href"),
-    smcAnchor=new StringMatcherChars("a");
+    smcAnchor =new StringMatcherChars("a")
+    ,smcBody  =new StringMatcherChars("body")
+    ,smcHref  =new StringMatcherChars("href")
+    ,smcScript=new StringMatcherChars("script")
+    ,smcStyle =new StringMatcherChars("style")
+    ,smcTitle =new StringMatcherChars("title")
+    ;
+  private static short
+    BEFORE_TITLE=2,
+    IN_TITLE=3,
+    BEFORE_BODY=4,
+    IN_BODY=5,
+    IN_ANCHOR=6,
+    IN_BODY_GARBAGE_SCRIPT=7,
+    IN_BODY_GARBAGE_STYLE=8,
+    AFTER_BODY=9;
 
-  /** A shortcut */
-  public static HTMLParser withParser(Collection<Link> values) {
-    return new HTMLParser(new AnchorReader(values));
-  }
 
   ////////////////////
   // PRIVATE STATE: //
   ////////////////////
 
-  private StringBuilder bufURL=new StringBuilder();
-  private StringMatcher
-    hrefMatcher  =new StringMatcher(smcHref),
-    anchorMatcher=new StringMatcher(smcAnchor);
-  private boolean inAnchor=false;
+  private StringBuilder
+    bufURL=new StringBuilder(),
+    bufTitle=new StringBuilder();
+  private HTMLParser parser;
+
 
   ///////////////////////////
   // INPUTS + CONSTRUCTOR: //
@@ -38,67 +48,167 @@ public class AnchorReader implements HTMLParserListener {
   private Collection<Link> values;
   public AnchorReader(Collection<Link> values) {
     this.values=values;
+    parser=new HTMLParser(new MyListener());
+  }
+
+  ///////////////////////
+  // PUBLIC FUNCTIONS: //
+  ///////////////////////
+
+  public void add(String s) {
+    parser.add(s);
+  }
+  public void reset() {
+    parser.reset();
   }
 
   ////////////////////////////
   // INTERFACE FULFILLMENT: //
   ////////////////////////////
 
-  public boolean tagNameStart(){
-    bufURL.setLength(0);
-    hrefMatcher.reset();
-    anchorMatcher.reset();
-    return true;
-  }
-  public boolean tagIsClosing(){
-    return false;
-  }
-  public boolean tagName(char c){
-    return anchorMatcher.soFarSoGood(c);
-  }
-  public boolean tagNameComplete(){
-    return anchorMatcher.success();
-  }
-  public boolean tagComplete(boolean selfClosing){
-    return false;
-  }
+  private class MyListener implements HTMLParserListener {
+    private boolean closingTag=false, textWhite=false;
+    private short state=BEFORE_TITLE;
+    private StringMatcher
+       matchAnchor  =new StringMatcher(smcAnchor)
+      ,matchBody    =new StringMatcher(smcBody)
+      ,matchHref    =new StringMatcher(smcHref)
+      ,scriptMatcher=new StringMatcher(smcScript)
+      ,styleMatcher =new StringMatcher(smcStyle)
+      ,titleMatcher =new StringMatcher(smcTitle)
+      ;
 
-  public boolean attrNameStart(){
-    if (!hrefMatcher.success())  hrefMatcher.reset();
-    return true;
-  }
-  public boolean attrName(char c){
-    return hrefMatcher.soFarSoGood(c);
-  }
-  public boolean attrNameComplete(){
-    return hrefMatcher.success();
-  }
+    public void reset() {
+      state=BEFORE_TITLE;
+      closingTag=false;
+      textWhite=false;
+    }
 
-  public boolean attrValueStart(){
-    return true;
-  }
-  public boolean attrValue(char c){
-    if (c!='#') {
-      bufURL.append(c);
+
+    public boolean tagStart(){
+      closingTag=false;
+      if (state==BEFORE_TITLE)
+        titleMatcher.reset();
+      matchAnchor.reset();
+      matchBody.reset();
+      scriptMatcher.reset();
+      styleMatcher.reset();
       return true;
     }
-    return false;
-  }
-  public boolean attrValueComplete(){
-    Link link=new Link();
-    link.url=bufURL.toString();
-    bufURL.setLength(0);
-    values.add(link);
-    return false;
-  }
+    public boolean tagIsClosing(){
+      return closingTag=true;
+    }
+    public boolean tagName(char c){
 
-  public boolean cdataStart(){return false;}
-  public boolean cdata(char c){return false;}
-  public boolean cdataComplete(){return false;}
-  public boolean commentStart(){return false;}
-  public boolean comment(char c){return false;}
-  public boolean commentComplete(){return false;}
-  public boolean text(char c){return false;}
+      // Note that these all start with a different character,
+      // so we can ignore the others if one works.
+      if (matchAnchor.soFarSoGood(c))
+        return true;
+      if (matchBody.soFarSoGood(c))
+        return true;
+      if (state==BEFORE_TITLE && titleMatcher.soFarSoGood(c))
+        return true;
+
+      // OH wait we have two things that start with S:
+      if (state==IN_BODY) {
+        scriptMatcher.add(c);
+        styleMatcher.add(c);
+        return scriptMatcher.soFarSoGood() || styleMatcher.soFarSoGood();
+      }
+
+      return false;
+    }
+    public boolean tagNameComplete(){
+      if (titleMatcher.success()) {
+        titleMatcher.reset();
+        state=closingTag
+          ?BEFORE_BODY
+          :IN_TITLE;
+        return false;
+      }
+      if (matchAnchor.success()) {
+        if (closingTag) return false;
+        bufURL.setLength(0);
+        matchHref.reset();
+        state=IN_ANCHOR;
+        return true;
+      }
+      if (matchBody.success()) {
+        state=closingTag ?AFTER_BODY :IN_BODY;
+        return !closingTag;
+      }
+      if (scriptMatcher.success()) {
+        state=closingTag ?IN_BODY :IN_BODY_GARBAGE_SCRIPT;
+        return closingTag;
+      }
+      if (styleMatcher.success()) {
+        state=closingTag ?IN_BODY :IN_BODY_GARBAGE_STYLE;
+        return closingTag;
+      }
+      return false;
+    }
+    public boolean tagComplete(boolean selfClosing){
+      closingTag=selfClosing;
+      if (state==IN_ANCHOR)
+        state=IN_BODY;
+      if (state==IN_BODY_GARBAGE_SCRIPT && selfClosing)
+        state=IN_BODY;
+      if (state==IN_BODY_GARBAGE_STYLE && selfClosing)
+        state=IN_BODY;
+      return state==IN_BODY;
+    }
+
+    public boolean attrNameStart(){
+      if (state==IN_ANCHOR) {
+        if (!matchHref.success())  matchHref.reset();
+        return true;
+      }
+      return false;
+    }
+    public boolean attrName(char c){
+      return matchHref.soFarSoGood(c);
+    }
+    public boolean attrNameComplete(){
+      return matchHref.success();
+    }
+
+    public boolean attrValueStart(){
+      return true;
+    }
+    public boolean attrValue(char c){
+      if (c!='#') {
+        bufURL.append(c);
+        return true;
+      }
+      return false;
+    }
+    public boolean attrValueComplete(){
+      Link link=new Link();
+      link.url=bufURL.toString();
+      bufURL.setLength(0);
+      values.add(link);
+      return false;
+    }
+    public boolean text(char c){
+      if (state==IN_BODY) {
+        boolean thisWhite=c==' ';
+        if (textWhite && thisWhite){}
+        else {
+          System.out.print(c);
+          textWhite=thisWhite;
+        }
+        return true;
+      }
+      return false;
+    }
+
+    public boolean cdataStart(){return false;}
+    public boolean cdata(char c){return false;}
+    public boolean cdataComplete(){return false;}
+    public boolean commentStart(){return false;}
+    public boolean comment(char c){return false;}
+    public boolean commentComplete(){return false;}
+  }
 
 
   //////////////
@@ -110,13 +220,11 @@ public class AnchorReader implements HTMLParserListener {
       new java.io.InputStreamReader(System.in)
     );
     Collection<Link> values=new java.util.HashSet<>(1000);
-    HTMLParser bp=new HTMLParser(
-      new AnchorReader(values)
-    );
+    AnchorReader bp=new AnchorReader(values);
     String s=null;
     while ((s=br.readLine())!=null)
       bp.add(s);
-    for (Link v : values)
-      System.out.println(v);
+    System.out.println();
+    for (Link v : values)   System.out.println(v);
   }
 }

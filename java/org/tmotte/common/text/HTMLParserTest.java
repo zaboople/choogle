@@ -4,6 +4,9 @@ class HTMLParserTest {
 
   final static class BigPrinter implements HTMLParserListener {
     boolean yes=true, yesAttr=true;
+
+
+
     private boolean print(char c) {
       System.out.print(c); return yes;
     }
@@ -17,9 +20,13 @@ class HTMLParserTest {
       System.out.print(s); return yesAttr;
     }
 
+    public void reset() {
+      yes=true; yesAttr=true;
+    }
+
     public boolean text(char c){print("-");return print(c);}
 
-    public boolean tagNameStart(){return print("\nTAG: <");}
+    public boolean tagStart(){return print("\nTAG: <");}
     public boolean tagIsClosing(){return print("/");}
     public boolean tagName(char c){return print(c);}
     public boolean tagNameComplete(){return print("");}

@@ -133,6 +133,7 @@ public class HTMLParser {
     void reset(){
       record=true;
       recordAttr=true;
+      reader.reset();
     }
 
     // INTERNAL CONVENIENCE FUNCTIONS:
@@ -151,7 +152,7 @@ public class HTMLParser {
       switch (mode){
         case CLEAN_START:
           if (c=='<'){
-            record=reader.tagNameStart();
+            record=reader.tagStart();
             return FIRST_AFTER_START_ANGLE;
           }
           record=record && reader.text(c);

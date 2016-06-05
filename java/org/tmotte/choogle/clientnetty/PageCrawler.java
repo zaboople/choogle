@@ -39,7 +39,7 @@ public final class PageCrawler implements Chreceiver {
   }
 
   private List<Link> urls=new ArrayList<>(100);
-  private HTMLParser anchorBP=AnchorReader.withParser(urls);
+  private AnchorReader anchorBP=new AnchorReader(urls);
   private String uri;
 
   public PageCrawler(String uri) {
@@ -50,10 +50,9 @@ public final class PageCrawler implements Chreceiver {
     System.out.println(" STARTING...");
   }
   public void body(HttpContent body){
-    String s=body.content().toString(CharsetUtil.UTF_8);
-    int len=s.length();
-    for (int i=0; i<len; i++)
-      anchorBP.add(s.charAt(i));
+    anchorBP.add(
+      body.content().toString(CharsetUtil.UTF_8)
+    );
   }
   public void complete(){
     System.out.print(uri);

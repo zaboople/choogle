@@ -5,7 +5,7 @@ package org.tmotte.common.text;
  * Call add() one character at a time, checking soFarSoGood() to determine whether the match has failed
  * and finally success() to verify there was an exact match.
  */
-public class StringMatcher {
+public final class StringMatcher {
 
   // Once:
   private StringMatcherChars smc;
