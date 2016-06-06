@@ -92,13 +92,8 @@ public final class ChClient {
       request.headers().set(HttpHeaders.Names.HOST, host);
       request.headers().set(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.CLOSE);
       request.headers().set(HttpHeaders.Names.ACCEPT_ENCODING, HttpHeaders.Values.GZIP);
-      //request.headers().set(
-      // HttpHeaders.Names.COOKIE,
-      //  ClientCookieEncoder.LAX.encode(
-      //    new DefaultCookie("my-cookie", "foo"),
-      //    new DefaultCookie("another-cookie", "bar")
-      //  )
-      //);
+
+      //setFakeCookie(request);
 
       // Send the HTTP request.
       channel.writeAndFlush(request);
@@ -106,5 +101,15 @@ public final class ChClient {
 
     } finally {
     }
+  }
+
+  private void setFakeCookie(HttpRequest request) throws Exception {
+    request.headers().set(
+     HttpHeaders.Names.COOKIE,
+      ClientCookieEncoder.LAX.encode(
+        new DefaultCookie("my-cookie", "foo"),
+        new DefaultCookie("another-cookie", "bar")
+      )
+    );
   }
 }
