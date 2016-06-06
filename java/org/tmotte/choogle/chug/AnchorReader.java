@@ -191,7 +191,7 @@ public final class AnchorReader {
     }
     public boolean text(char c){
       if (state==IN_BODY) {
-        boolean thisWhite=c==' ';
+        boolean thisWhite=c==' ' || c=='\t';
         if (textWhite && thisWhite){}
         else {
           System.out.print(c);

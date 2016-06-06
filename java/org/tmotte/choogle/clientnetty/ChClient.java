@@ -20,17 +20,16 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import java.net.URI;
-
+import org.tmotte.choogle.chug.Link;
 
 /**
  * A simple HTTP client that prints out the content of the HTTP response to
  * {@link System#out} to test {@link HttpSnoopServer}.
  */
 public final class ChClient {
+  //FIXME DON'T NEED TO CREATE SO MANY NEW INSTANCES
   private EventLoopGroup group;
   private ChannelInitializer<SocketChannel> initializer;
-  private Bootstrap bootstrap;
-  private Channel channel;
 
   public ChClient(EventLoopGroup elg, ChannelInitializer<SocketChannel> ci) {
     this.group=elg;
@@ -55,44 +54,49 @@ public final class ChClient {
     this(elg, ssl, new ChClientHandler(r));
   }
 
-  //FIXME DON'T NEED TO CREATE SO MANY NEW INSTANCES
-  public ChannelFuture read(String uriStr) throws Exception {
-    URI uri = new URI(uriStr);
-    String scheme = uri.getScheme() == null? "http" : uri.getScheme();
-    String host = uri.getHost() == null? "127.0.0.1" : uri.getHost();
+  public Channel connect(String host, int port) throws Exception {
+    return new Bootstrap()
+      .group(group)
+      .channel(NioSocketChannel.class)
+      .handler(initializer)
+      .connect(host, port)
+      .sync()
+      .channel();
+  }
+  public Channel connect(URI uri) throws Exception {
+    String host = uri.getHost();
     int port = uri.getPort();
-    if (port != -1)
-      {}
-    else
-    if ("http".equalsIgnoreCase(scheme))
-      port = 80;
-    else
-    if ("https".equalsIgnoreCase(scheme))
-      port = 443;
-    else
-      throw new Exception("Can't derive port");
+    if (port == -1) {
+      String scheme = uri.getScheme();
+      if (scheme==null) scheme="http";
+      if ("http".equalsIgnoreCase(scheme))
+        port = 80;
+      else
+      if ("https".equalsIgnoreCase(scheme))
+        port = 443;
+      else
+        throw new Exception("Can't derive port");
+    }
+    return connect(host, port);
+  }
 
+  public ChannelFuture read(String uriStr) throws Exception {
+    return read(Link.getURI(uriStr));
+  }
+  public ChannelFuture read(URI uri) throws Exception {
+    return read(uri, connect(uri));
+  }
 
-    // Configure the client.
+  public ChannelFuture read(URI uri, Channel channel) throws Exception {
     try {
-
-      // Make the connection attempt.
-      channel=new Bootstrap()
-        .group(group)
-        .channel(NioSocketChannel.class)
-        .handler(initializer)
-        .connect(host, port)
-        .sync()
-        .channel();
 
       // Prepare the HTTP request.
       HttpRequest request = new DefaultFullHttpRequest(
         HttpVersion.HTTP_1_1, HttpMethod.GET, uri.getRawPath()
       );
-      request.headers().set(HttpHeaders.Names.HOST, host);
-      request.headers().set(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.CLOSE);
+      request.headers().set(HttpHeaders.Names.HOST, uri.getHost());
+      request.headers().set(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
       request.headers().set(HttpHeaders.Names.ACCEPT_ENCODING, HttpHeaders.Values.GZIP);
-
       //setFakeCookie(request);
 
       // Send the HTTP request.
@@ -102,6 +106,7 @@ public final class ChClient {
     } finally {
     }
   }
+
 
   private void setFakeCookie(HttpRequest request) throws Exception {
     request.headers().set(
