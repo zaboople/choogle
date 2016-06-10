@@ -52,28 +52,34 @@ class HTMLParserTest {
     public boolean commentComplete(){return print("END COMMENT");}
 
   }
+  private static void doc(String s) {
+    System.out.print("\n");
+    System.out.print(s);
+  }
 
   public static void main(String[] args) {
     BigPrinter prn=new BigPrinter();
-    System.out.println("=========");
+    doc("a=========");
     HTMLParser bp=new HTMLParser(prn);
     bp.add("<abc pig=booger pig2=\"mi\">hello</abc><div x>ee</div>");
-    System.out.println("=========");
+    doc("b=========");
     bp.add("<div><![CDATA[  a.type=<fudge></bomb> ] ] ]>  ]]> <!--A comment-- -- ->--></div>");
-    System.out.println("=========");
+    doc("c=========");
     bp.add("<");
     bp.add("zoom ");
     bp.add(" wheels='off' tires=\"roof\"/><l>hi<b></l>");
-    System.out.println("=========");
+    doc("d=========");
     bp.add("<p wheels =  off    tires =\"roof\" notion=   \"bizarre   \">");
 
-    System.out.println("=========");
+    doc("e========= Should not print tag name or attrs:");
     prn.yes=false;
     bp.add("<tag val='yes'>");
-    System.out.println("=========");
+
+    doc("f========= Should not print attr names or values:");
     prn.yes=true;
     prn.yesAttr=false;
     bp.add("<tag val='yes'>");
-    System.out.println("=========");
+
+    doc("g=========");
   }
 }

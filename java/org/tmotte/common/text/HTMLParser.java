@@ -33,41 +33,44 @@ public class HTMLParser {
     return c==' ' || c=='\t' || c=='\n' || c=='\r';
   }
 
+  private final static int BLOCK_MAIN=128, BLOCK_CDATA=64, BLOCK_COMMENT=32, BLOCK_STUCK_SCRIPT=16;
   /**
    * These are the different values for mode.
    * Note they are divided up into a 64 block, a 16 block and a 0 block.
    * The add() function does an if-else-if-else on the blocks.
    */
   private final static short
-    CLEAN_START            =65,
-    FIRST_AFTER_START_ANGLE=66,
-    TAG_IS_NAMING          =67,
-    WAITING_FOR_TAG_ATTRS  =68,
-    IN_ATTR_NAME           =69,
-    AFTER_ATTR_NAME        =70,
-    AFTER_ATTR_EQUALS      =71,
-    AFTER_ATTR_DBL_QUOTE   =72,
-    AFTER_ATTR_QUOTE       =73,
-    ATTR_VALUE_NO_QUOTE    =74,
-    ELEMENT_SELF_CLOSING   =75,
-    TAG_IS_CLOSING         =76,
-    AFTER_BANG             =77,
-    TAG_GARBAGED           =78,
+    CLEAN_START            =BLOCK_MAIN+1,
+    FIRST_AFTER_START_ANGLE=BLOCK_MAIN+2,
+    TAG_IS_NAMING          =BLOCK_MAIN+3,
+    WAITING_FOR_TAG_ATTRS  =BLOCK_MAIN+4,
+    IN_ATTR_NAME           =BLOCK_MAIN+5,
+    AFTER_ATTR_NAME        =BLOCK_MAIN+6,
+    AFTER_ATTR_EQUALS      =BLOCK_MAIN+7,
+    AFTER_ATTR_DBL_QUOTE   =BLOCK_MAIN+8,
+    AFTER_ATTR_QUOTE       =BLOCK_MAIN+9,
+    ATTR_VALUE_NO_QUOTE    =BLOCK_MAIN+10,
+    ELEMENT_SELF_CLOSING   =BLOCK_MAIN+11,
+    TAG_IS_CLOSING         =BLOCK_MAIN+12,
+    AFTER_BANG             =BLOCK_MAIN+13,
+    TAG_GARBAGED           =BLOCK_MAIN+14,
+    IN_SCRIPT              =BLOCK_MAIN+15,
 
-    CDATA_AFTER_1_BRACK      =17,
-    CDATA_AFTER_C            =18,
-    CDATA_AFTER_D            =19,
-    CDATA_AFTER_A            =20,
-    CDATA_AFTER_T            =21,
-    CDATA_AFTER_A2           =22,
-    CDATA_TEXT               =23,
-    CDATA_AFTER_CLOSE_BRACK_1=24,
-    CDATA_AFTER_CLOSE_BRACK_2=25,
+    CDATA_AFTER_1_BRACK      =BLOCK_CDATA+1,
+    CDATA_AFTER_C            =BLOCK_CDATA+2,
+    CDATA_AFTER_D            =BLOCK_CDATA+3,
+    CDATA_AFTER_A            =BLOCK_CDATA+4,
+    CDATA_AFTER_T            =BLOCK_CDATA+5,
+    CDATA_AFTER_A2           =BLOCK_CDATA+6,
+    CDATA_TEXT               =BLOCK_CDATA+7,
+    CDATA_AFTER_CLOSE_BRACK_1=BLOCK_CDATA+8,
+    CDATA_AFTER_CLOSE_BRACK_2=BLOCK_CDATA+9,
 
-    COMMENT_AFTER_1_DASH      =1,
-    COMMENT_TEXT              =2,
-    COMMENT_CLOSE_AFTER_1_DASH=3,
-    COMMENT_CLOSE_AFTER_2_DASH=4;
+    COMMENT_AFTER_1_DASH      =BLOCK_COMMENT+1,
+    COMMENT_TEXT              =BLOCK_COMMENT+2,
+    COMMENT_CLOSE_AFTER_1_DASH=BLOCK_COMMENT+3,
+    COMMENT_CLOSE_AFTER_2_DASH=BLOCK_COMMENT+4;
+
 
   /////////////////////////////////
   // PRIVATE DATA & CONSTRUCTOR: //
@@ -85,13 +88,16 @@ public class HTMLParser {
 
   /** Add one character of a document */
   public HTMLParser add(char c) {
-    if (mode>=64)
+    if (mode>=BLOCK_MAIN)
       mode=inner.parse(c, mode);
     else
-    if (mode>=16)
+    if (mode>=BLOCK_CDATA)
       mode=inner.parseCData(c, mode);
     else
+    if (mode>=BLOCK_COMMENT)
       mode=inner.parseComment(c, mode);
+    else
+      throw new RuntimeException("Unexpected: "+c);
     return this;
   }
 
