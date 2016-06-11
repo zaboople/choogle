@@ -67,10 +67,10 @@ public final class AnchorReader {
   ////////////////////////////
 
   private class MyListener implements HTMLParserListener {
-    private boolean closingTag=false, textWhite=false;
+    private boolean textWhite=false;
     private short state=BEFORE_TITLE;
     private StringMatcher
-       matchAnchor  =new StringMatcher(smcAnchor)
+       matchAnchor  =new StringMatcher(smcAnchor)//FIXME most of these can be StringMatcherStatic
       ,matchBody    =new StringMatcher(smcBody)
       ,matchHref    =new StringMatcher(smcHref)
       ,scriptMatcher=new StringMatcher(smcScript)
@@ -80,25 +80,11 @@ public final class AnchorReader {
 
     public void reset() {
       state=BEFORE_TITLE;
-      closingTag=false;
       textWhite=false;
     }
 
 
-    public boolean tagStart(){
-      closingTag=false;
-      if (state==BEFORE_TITLE)
-        titleMatcher.reset();
-      matchAnchor.reset();
-      matchBody.reset();
-      scriptMatcher.reset();
-      styleMatcher.reset();
-      return true;
-    }
-    public boolean tagIsClosing(){
-      return closingTag=true;
-    }
-    private boolean tagName(char c){
+    private boolean tagName(char c){ //FIXME match the damn string not the char
 
       // Note that these all start with a different character,
       // so we can ignore the others if one works.
@@ -118,7 +104,13 @@ public final class AnchorReader {
 
       return false;
     }
-    public boolean tagNameComplete(CharSequence cs){
+    public boolean tagNameComplete(boolean closingTag, CharSequence cs){
+      if (state==BEFORE_TITLE)
+        titleMatcher.reset();
+      matchAnchor.reset();
+      matchBody.reset();
+      scriptMatcher.reset();
+      styleMatcher.reset();
       for (int i=0; i<cs.length(); i++)
         if (!tagName(cs.charAt(i)))
           return false;
@@ -151,7 +143,6 @@ public final class AnchorReader {
       return false;
     }
     public boolean tagComplete(boolean selfClosing){
-      closingTag=selfClosing;
       if (state==IN_ANCHOR)
         state=IN_BODY;
       if (state==IN_BODY_GARBAGE_SCRIPT && selfClosing)
@@ -192,7 +183,7 @@ public final class AnchorReader {
       values.add(link);
       return false;
     }
-    public boolean text(char c){
+    public boolean text(char c, boolean inScript){
       if (state==IN_BODY) {
         boolean thisWhite=c==' ' || c=='\t';
         if (textWhite && thisWhite){}

@@ -7,15 +7,9 @@ public interface HTMLParserListener {
    */
   public void reset();
 
-  public boolean text(char c);
+  public boolean text(char c, boolean inScript);
 
-  public boolean tagStart();
-
-  /**
-   * Means the tag is of the form </foo>, not <foo ... /> or <foo ...>
-   */
-  public boolean tagIsClosing();
-  public boolean tagNameComplete(CharSequence cs);
+  public boolean tagNameComplete(boolean isClosing, CharSequence cs);
 
   /**
    * @param selfClosing means that the tag ends with /&gt;, so you

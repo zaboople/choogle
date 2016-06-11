@@ -33,7 +33,12 @@ public class HTMLParser {
     return c==' ' || c=='\t' || c=='\n' || c=='\r';
   }
 
-  private final static int BLOCK_MAIN=128, BLOCK_CDATA=64, BLOCK_COMMENT=32, BLOCK_STUCK_SCRIPT=16;
+  private final static StringMatcherStatic scriptMatcher=
+    new StringMatcherStatic("script");
+  private final static int
+    BLOCK_MAIN=128,
+    BLOCK_CDATA=64,
+    BLOCK_COMMENT=32;
   /**
    * These are the different values for mode.
    * Note they are divided up into a 64 block, a 16 block and a 0 block.
@@ -51,10 +56,8 @@ public class HTMLParser {
     AFTER_ATTR_QUOTE       =BLOCK_MAIN+9,
     ATTR_VALUE_NO_QUOTE    =BLOCK_MAIN+10,
     ELEMENT_SELF_CLOSING   =BLOCK_MAIN+11,
-    TAG_IS_CLOSING         =BLOCK_MAIN+12,
-    AFTER_BANG             =BLOCK_MAIN+13,
-    TAG_GARBAGED           =BLOCK_MAIN+14,
-    IN_SCRIPT              =BLOCK_MAIN+15,
+    AFTER_BANG             =BLOCK_MAIN+12,
+    IN_SCRIPT              =BLOCK_MAIN+13,
 
     CDATA_AFTER_1_BRACK      =BLOCK_CDATA+1,
     CDATA_AFTER_C            =BLOCK_CDATA+2,
@@ -130,7 +133,9 @@ public class HTMLParser {
     private final HTMLParserListener reader;
     private boolean
       record=true,
-      recordAttr=true;
+      recordAttr=true,
+      inScript=false,
+      tagIsClosing=false;
     private StringBuilder bufTagName=new StringBuilder();
 
     InnerParser(HTMLParserListener reader) {
@@ -145,45 +150,68 @@ public class HTMLParser {
     }
 
     // INTERNAL CONVENIENCE FUNCTIONS:
-    private short tagNameCompleteAndGarbaged() {
-      tagNameComplete();
-      return TAG_GARBAGED;
+    private short tagGarbaged(CharSequence s) {
+      if (inScript)
+        return inScriptAbort(s);
+      return tagCompleteCleanStart(false);
+    }
+    private short inScriptAbort(CharSequence s) {
+      for (int i=0; record && i<s.length(); i++)
+        record=record && reader.text(s.charAt(i), inScript);
+      bufTagName.setLength(0);
+      return CLEAN_START;
     }
     private short tagCompleteCleanStart(boolean selfClosing) {
       record = reader.tagComplete(selfClosing);
+      tagIsClosing=false;
+      bufTagName.setLength(0);
       return CLEAN_START;
     }
-    private void tagNameComplete() {
-      record=record && reader.tagNameComplete(bufTagName);
+    private short tagNameComplete(short returnVal, boolean closeBrack) {
+      if (inScript){
+        if (tagIsClosing && scriptMatcher.matches(bufTagName))
+          inScript=false;//FIXME we didn't hit > yet
+        else {
+          String buf=bufTagName.toString();
+          bufTagName.setLength(0);
+          return inScriptAbort(
+            (tagIsClosing ?"</" :"<") + buf
+          );
+        }
+      }
+      else
+        inScript=scriptMatcher.matches(bufTagName);
+      record=reader.tagNameComplete(tagIsClosing, bufTagName);
       bufTagName.setLength(0);
+      if (closeBrack)
+        record=reader.tagComplete(false);
+      return returnVal;
     }
-
     // EVERYTHING ELSE IS OUR
     // 3 PARSING FUNCTIONS:
     short parse(char c, short mode) {
       switch (mode){
         case CLEAN_START:
           if (c=='<'){
-            record=reader.tagStart();
+            tagIsClosing=false;
             return FIRST_AFTER_START_ANGLE;
           }
-          record=record && reader.text(c);
+          record=record && reader.text(c, inScript);
           return CLEAN_START;
 
         case FIRST_AFTER_START_ANGLE:
           // First char after <
           if (c=='/'){
-            record=record && reader.tagIsClosing();
-            return TAG_IS_CLOSING;
+            tagIsClosing=true;
+            return TAG_IS_NAMING;
           }
-          if (c=='>') {
-            tagNameComplete();
-            return tagCompleteCleanStart(false);
-          }
-          if (c=='=' || c=='\'' || c=='"')
-            return tagNameCompleteAndGarbaged();
-          if (isWhite(c) || c=='<')
+          if (c=='>' || c=='=' || c=='\'' || c=='"' || c=='<')
+            return tagGarbaged("<"+c);
+          if (isWhite(c)){
+            if (inScript)
+              return inScriptAbort("<"+c);
             return FIRST_AFTER_START_ANGLE;
+          }
           if (c=='!')
             return AFTER_BANG;
           bufTagName.append(c);
@@ -192,20 +220,21 @@ public class HTMLParser {
 
         case TAG_IS_NAMING:
           // Still after <, getting tag name:
-          if (isWhite(c)) {
-            tagNameComplete();
-            return WAITING_FOR_TAG_ATTRS;
-          }
-          if (c=='/') {
-            tagNameComplete();
-            return ELEMENT_SELF_CLOSING;
-          }
-          if (c=='>') {
-            tagNameComplete();
-            return tagCompleteCleanStart(false);
-          }
-          if (c=='=' || c=='\'' || c=='"')
-            return tagNameCompleteAndGarbaged();
+          if (isWhite(c))
+            return tagNameComplete(WAITING_FOR_TAG_ATTRS, false);
+          if (c=='/')
+            return tagNameComplete(ELEMENT_SELF_CLOSING, false);
+          if (c=='>')
+            return tagNameComplete(CLEAN_START, true);
+          if (
+              !(c>='a' && c<='z')&&
+              !(c>='A' && c<='Z') &&
+              !(c>='0' && c<='9')
+            )
+            return tagGarbaged(
+              (tagIsClosing ?"</" :"<")+
+              bufTagName.append(c)
+            );
           bufTagName.append(c);
           return TAG_IS_NAMING;
 
@@ -312,26 +341,17 @@ public class HTMLParser {
           if (c=='>') return tagCompleteCleanStart(true);
           return ELEMENT_SELF_CLOSING;
 
-        case TAG_IS_CLOSING:
-          // After the "/" in "</....>"
-          if (c=='>'){
-            tagNameComplete();
-            return tagCompleteCleanStart(false);
-          }
-          bufTagName.append(c);
-          return TAG_IS_CLOSING;
 
         case AFTER_BANG:
           // <!
-          tagNameComplete();
           if (c=='[') return CDATA_AFTER_1_BRACK;
           if (c=='-') return COMMENT_AFTER_1_DASH;
-          if (c==' ') return AFTER_BANG;
-          return TAG_GARBAGED;
+          if (c==' ')
+            return inScript
+              ?tagGarbaged("<! ")
+              :AFTER_BANG; //Forgiveness on accidental space
+          return tagGarbaged("<!"+c);
 
-        case TAG_GARBAGED:
-          if (c=='>') return tagCompleteCleanStart(false);
-          return TAG_GARBAGED;
 
         default:
           throw new RuntimeException("Unexpected: "+c);
@@ -346,8 +366,7 @@ public class HTMLParser {
             record=record && reader.commentStart();
             return COMMENT_TEXT;
           }
-          record=record && reader.commentStart();
-          return parseComment(c, COMMENT_TEXT);
+          return tagGarbaged("<!-"+c);
 
         case COMMENT_TEXT:
           if (c=='-') return COMMENT_CLOSE_AFTER_1_DASH;
@@ -376,25 +395,25 @@ public class HTMLParser {
       switch (mode) {
         case CDATA_AFTER_1_BRACK:
           if (c=='C' || c=='c') return CDATA_AFTER_C;
-          return tagNameCompleteAndGarbaged();
+          return tagGarbaged("<!["+c);
         case CDATA_AFTER_C:
           if (c=='D' || c=='d') return CDATA_AFTER_D;
-          return tagNameCompleteAndGarbaged();
+          return tagGarbaged("<![C"+c);
         case CDATA_AFTER_D:
           if (c=='A' || c=='a') return CDATA_AFTER_A;
-          return tagNameCompleteAndGarbaged();
+          return tagGarbaged("<![CD"+c);
         case CDATA_AFTER_A:
           if (c=='T' || c=='t') return CDATA_AFTER_T;
-          return tagNameCompleteAndGarbaged();
+          return tagGarbaged("<![CDA"+c);
         case CDATA_AFTER_T:
           if (c=='A' || c=='a') return CDATA_AFTER_A2;
-          return tagNameCompleteAndGarbaged();
+          return tagGarbaged("<![CDAT"+c);
         case CDATA_AFTER_A2:
           if (c=='[') {
             record=record && reader.cdataStart();
             return CDATA_TEXT;
           }
-          return tagNameCompleteAndGarbaged();
+          return tagGarbaged("<![CDATA"+c);
 
         case CDATA_TEXT:
           if (c==']') return CDATA_AFTER_CLOSE_BRACK_1;
