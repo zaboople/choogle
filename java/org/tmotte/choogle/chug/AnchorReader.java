@@ -3,6 +3,7 @@ import java.util.Collection;
 import org.tmotte.common.text.HTMLParserListener;
 import org.tmotte.common.text.HTMLParser;
 import org.tmotte.common.text.StringMatcher;
+import org.tmotte.common.text.StringMatcherStatic;
 import org.tmotte.common.text.StringMatcherChars;
 
 /** FIXME **NOT** SELF-RESETTING */
@@ -12,14 +13,19 @@ public final class AnchorReader {
   // STATIC VARIABLES AND FUNCTIONS: //
   /////////////////////////////////////
 
-  private static StringMatcherChars
-    smcAnchor =new StringMatcherChars("a")
-    ,smcBody  =new StringMatcherChars("body")
-    ,smcHref  =new StringMatcherChars("href")
-    ,smcScript=new StringMatcherChars("script")
-    ,smcStyle =new StringMatcherChars("style")
-    ,smcTitle =new StringMatcherChars("title")
+  private static StringMatcherStatic
+    matchAnchor=new StringMatcherStatic("a")
+    ,
+    matchBody  =new StringMatcherStatic("body")
+    ,
+    matchTitle =new StringMatcherStatic("title")
+    ,
+    matchScript=new StringMatcherStatic("script")
+    ,
+    matchStyle =new StringMatcherStatic("style")
     ;
+  private static StringMatcherChars
+    smcHref  =new StringMatcherChars("href");
   private static short
     BEFORE_TITLE=2,
     IN_TITLE=3,
@@ -69,74 +75,36 @@ public final class AnchorReader {
   private class MyListener implements HTMLParserListener {
     private boolean textWhite=false;
     private short state=BEFORE_TITLE;
-    private StringMatcher
-       matchAnchor  =new StringMatcher(smcAnchor)//FIXME most of these can be StringMatcherStatic
-      ,matchBody    =new StringMatcher(smcBody)
-      ,matchHref    =new StringMatcher(smcHref)
-      ,scriptMatcher=new StringMatcher(smcScript)
-      ,styleMatcher =new StringMatcher(smcStyle)
-      ,titleMatcher =new StringMatcher(smcTitle)
-      ;
+    private StringMatcher matchHref    =new StringMatcher(smcHref);
 
     public void reset() {
       state=BEFORE_TITLE;
       textWhite=false;
     }
 
-
-    private boolean tagName(char c){ //FIXME match the damn string not the char
-
-      // Note that these all start with a different character,
-      // so we can ignore the others if one works.
-      if (matchAnchor.soFarSoGood(c))
-        return true;
-      if (matchBody.soFarSoGood(c))
-        return true;
-      if (state==BEFORE_TITLE && titleMatcher.soFarSoGood(c))
-        return true;
-
-      // OH wait we have two things that start with S:
-      if (state==IN_BODY) {
-        scriptMatcher.add(c);
-        styleMatcher.add(c);
-        return scriptMatcher.soFarSoGood() || styleMatcher.soFarSoGood();
-      }
-
-      return false;
-    }
     public boolean tagNameComplete(boolean closingTag, CharSequence cs){
-      if (state==BEFORE_TITLE)
-        titleMatcher.reset();
-      matchAnchor.reset();
-      matchBody.reset();
-      scriptMatcher.reset();
-      styleMatcher.reset();
-      for (int i=0; i<cs.length(); i++)
-        if (!tagName(cs.charAt(i)))
-          return false;
-      if (titleMatcher.success()) {
-        titleMatcher.reset();
+      if (state==BEFORE_TITLE && matchTitle.matches(cs)){
         state=closingTag
           ?BEFORE_BODY
           :IN_TITLE;
         return false;
       }
-      if (matchAnchor.success()) {
+      if (matchAnchor.matches(cs)) {
         if (closingTag) return false;
         bufURL.setLength(0);
         matchHref.reset();
         state=IN_ANCHOR;
         return true;
       }
-      if (matchBody.success()) {
+      if (matchBody.matches(cs)) {
         state=closingTag ?AFTER_BODY :IN_BODY;
         return !closingTag;
       }
-      if (scriptMatcher.success()) {
+      if (matchScript.matches(cs)) {
         state=closingTag ?IN_BODY :IN_BODY_GARBAGE_SCRIPT;
         return closingTag;
       }
-      if (styleMatcher.success()) {
+      if (matchStyle.matches(cs)) {
         state=closingTag ?IN_BODY :IN_BODY_GARBAGE_STYLE;
         return closingTag;
       }
