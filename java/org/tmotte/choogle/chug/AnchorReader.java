@@ -98,7 +98,7 @@ public final class AnchorReader {
     public boolean tagIsClosing(){
       return closingTag=true;
     }
-    public boolean tagName(char c){
+    private boolean tagName(char c){
 
       // Note that these all start with a different character,
       // so we can ignore the others if one works.
@@ -118,7 +118,10 @@ public final class AnchorReader {
 
       return false;
     }
-    public boolean tagNameComplete(){
+    public boolean tagNameComplete(CharSequence cs){
+      for (int i=0; i<cs.length(); i++)
+        if (!tagName(cs.charAt(i)))
+          return false;
       if (titleMatcher.success()) {
         titleMatcher.reset();
         state=closingTag
