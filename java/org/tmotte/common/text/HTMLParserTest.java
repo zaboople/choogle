@@ -28,8 +28,7 @@ class HTMLParserTest {
 
     public boolean tagStart(){return print("\nTAG: <");}
     public boolean tagIsClosing(){return print("/");}
-    public boolean tagName(char c){return print(c);}
-    public boolean tagNameComplete(){return print("");}
+    public boolean tagNameComplete(CharSequence cs){return print(cs.toString());}
     public boolean tagComplete(boolean selfClosing){
       if (selfClosing) print("/");
       return print(">\n");

@@ -15,8 +15,7 @@ public interface HTMLParserListener {
    * Means the tag is of the form </foo>, not <foo ... /> or <foo ...>
    */
   public boolean tagIsClosing();
-  public boolean tagName(char c);
-  public boolean tagNameComplete();
+  public boolean tagNameComplete(CharSequence cs);
 
   /**
    * @param selfClosing means that the tag ends with /&gt;, so you

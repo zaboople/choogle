@@ -131,6 +131,8 @@ public class HTMLParser {
     private boolean
       record=true,
       recordAttr=true;
+    private StringBuilder bufTagName=new StringBuilder();
+
     InnerParser(HTMLParserListener reader) {
       this.reader=reader;
     }
@@ -144,12 +146,16 @@ public class HTMLParser {
 
     // INTERNAL CONVENIENCE FUNCTIONS:
     private short tagNameCompleteAndGarbaged() {
-      record=record && reader.tagNameComplete();
+      tagNameComplete();
       return TAG_GARBAGED;
     }
     private short tagCompleteCleanStart(boolean selfClosing) {
       record = reader.tagComplete(selfClosing);
       return CLEAN_START;
+    }
+    private void tagNameComplete() {
+      record=record && reader.tagNameComplete(bufTagName);
+      bufTagName.setLength(0);
     }
 
     // EVERYTHING ELSE IS OUR
@@ -171,7 +177,7 @@ public class HTMLParser {
             return TAG_IS_CLOSING;
           }
           if (c=='>') {
-            record=record && reader.tagNameComplete();
+            tagNameComplete();
             return tagCompleteCleanStart(false);
           }
           if (c=='=' || c=='\'' || c=='"')
@@ -180,27 +186,27 @@ public class HTMLParser {
             return FIRST_AFTER_START_ANGLE;
           if (c=='!')
             return AFTER_BANG;
-          record=record && reader.tagName(c);
+          bufTagName.append(c);
           return TAG_IS_NAMING;
 
 
         case TAG_IS_NAMING:
           // Still after <, getting tag name:
           if (isWhite(c)) {
-            record=record && reader.tagNameComplete();
+            tagNameComplete();
             return WAITING_FOR_TAG_ATTRS;
           }
           if (c=='/') {
-            record=record && reader.tagNameComplete();
+            tagNameComplete();
             return ELEMENT_SELF_CLOSING;
           }
           if (c=='>') {
-            record=record && reader.tagNameComplete();
+            tagNameComplete();
             return tagCompleteCleanStart(false);
           }
           if (c=='=' || c=='\'' || c=='"')
             return tagNameCompleteAndGarbaged();
-          record=record && reader.tagName(c);
+          bufTagName.append(c);
           return TAG_IS_NAMING;
 
         case WAITING_FOR_TAG_ATTRS:
@@ -309,15 +315,15 @@ public class HTMLParser {
         case TAG_IS_CLOSING:
           // After the "/" in "</....>"
           if (c=='>'){
-            record=record && reader.tagNameComplete();
+            tagNameComplete();
             return tagCompleteCleanStart(false);
           }
-          record=record && reader.tagName(c);
+          bufTagName.append(c);
           return TAG_IS_CLOSING;
 
         case AFTER_BANG:
           // <!
-          record=record && reader.tagNameComplete();
+          tagNameComplete();
           if (c=='[') return CDATA_AFTER_1_BRACK;
           if (c=='-') return COMMENT_AFTER_1_DASH;
           if (c==' ') return AFTER_BANG;
