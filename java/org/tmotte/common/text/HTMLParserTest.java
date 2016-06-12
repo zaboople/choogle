@@ -85,7 +85,6 @@ class HTMLParserTest {
 
   public static void main(String[] args) {
     new BigDriver()
-      /*
       .doc("Basic open-close")
         .add("<div> </div>")
 
@@ -112,7 +111,7 @@ class HTMLParserTest {
       .setYes(true)
       .setYesAttr(false)
       .add("<tag val='yes'>")
-      */
+
       .doc("G Should know script vs. not script:")
       .add("<script> blah blah <fuh><a href='berp'><script>\n")
       .add("wee </~~~ </~~ bler<!- <![CDATA[ ha it's cdata ]]>more </s> dumb<><!<<< </sc></script>")
@@ -120,5 +119,9 @@ class HTMLParserTest {
       .doc("")
 
      ;
+     char c=0;
+     System.out.print("[");
+     //System.out.print(c);
+     System.out.println("]");
   }
 }

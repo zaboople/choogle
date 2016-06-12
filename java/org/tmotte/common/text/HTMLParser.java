@@ -150,14 +150,16 @@ public class HTMLParser {
     }
 
     // INTERNAL CONVENIENCE FUNCTIONS:
-    private short tagGarbaged(CharSequence s) {
+    private short tagGarbaged(CharSequence s, char c) {
       if (inScript)
-        return inScriptAbort(s);
+        return inScriptAbort(s, c);
       return tagCompleteCleanStart(false);
     }
-    private short inScriptAbort(CharSequence s) {
+    private short inScriptAbort(CharSequence s, char c) {
       for (int i=0; record && i<s.length(); i++)
         record=record && reader.text(s.charAt(i), inScript);
+      if (c!=0)
+        record=record && reader.text(c, inScript);
       bufTagName.setLength(0);
       return CLEAN_START;
     }
@@ -171,13 +173,11 @@ public class HTMLParser {
       if (inScript){
         if (tagIsClosing && scriptMatcher.matches(bufTagName))
           inScript=false;//FIXME we didn't hit > yet
-        else {
-          String buf=bufTagName.toString();
-          bufTagName.setLength(0);
+        else
           return inScriptAbort(
-            (tagIsClosing ?"</" :"<") + buf
+            bufTagName.insert(0, (tagIsClosing ?"</" :"<")),
+            (char)0
           );
-        }
       }
       else
         inScript=scriptMatcher.matches(bufTagName);
@@ -206,10 +206,10 @@ public class HTMLParser {
             return TAG_IS_NAMING;
           }
           if (c=='>' || c=='=' || c=='\'' || c=='"' || c=='<')
-            return tagGarbaged("<"+c);
+            return tagGarbaged("<", c);
           if (isWhite(c)){
             if (inScript)
-              return inScriptAbort("<"+c);
+              return inScriptAbort("<", c);
             return FIRST_AFTER_START_ANGLE;
           }
           if (c=='!')
@@ -232,8 +232,8 @@ public class HTMLParser {
               !(c>='0' && c<='9')
             )
             return tagGarbaged(
-              (tagIsClosing ?"</" :"<")+
-              bufTagName.append(c)
+              bufTagName.insert(0, (tagIsClosing ?"</" :"<")),
+              c
             );
           bufTagName.append(c);
           return TAG_IS_NAMING;
@@ -348,9 +348,9 @@ public class HTMLParser {
           if (c=='-') return COMMENT_AFTER_1_DASH;
           if (c==' ')
             return inScript
-              ?tagGarbaged("<! ")
+              ?tagGarbaged("<! ", (char)0)
               :AFTER_BANG; //Forgiveness on accidental space
-          return tagGarbaged("<!"+c);
+          return tagGarbaged("<!", c);
 
 
         default:
@@ -366,7 +366,7 @@ public class HTMLParser {
             record=record && reader.commentStart();
             return COMMENT_TEXT;
           }
-          return tagGarbaged("<!-"+c);
+          return tagGarbaged("<!-", c);
 
         case COMMENT_TEXT:
           if (c=='-') return COMMENT_CLOSE_AFTER_1_DASH;
@@ -395,25 +395,25 @@ public class HTMLParser {
       switch (mode) {
         case CDATA_AFTER_1_BRACK:
           if (c=='C' || c=='c') return CDATA_AFTER_C;
-          return tagGarbaged("<!["+c);
+          return tagGarbaged("<![", c);
         case CDATA_AFTER_C:
           if (c=='D' || c=='d') return CDATA_AFTER_D;
-          return tagGarbaged("<![C"+c);
+          return tagGarbaged("<![C", c);
         case CDATA_AFTER_D:
           if (c=='A' || c=='a') return CDATA_AFTER_A;
-          return tagGarbaged("<![CD"+c);
+          return tagGarbaged("<![CD", c);
         case CDATA_AFTER_A:
           if (c=='T' || c=='t') return CDATA_AFTER_T;
-          return tagGarbaged("<![CDA"+c);
+          return tagGarbaged("<![CDA", c);
         case CDATA_AFTER_T:
           if (c=='A' || c=='a') return CDATA_AFTER_A2;
-          return tagGarbaged("<![CDAT"+c);
+          return tagGarbaged("<![CDAT", c);
         case CDATA_AFTER_A2:
           if (c=='[') {
             record=record && reader.cdataStart();
             return CDATA_TEXT;
           }
-          return tagGarbaged("<![CDATA"+c);
+          return tagGarbaged("<![CDATA", c);
 
         case CDATA_TEXT:
           if (c==']') return CDATA_AFTER_CLOSE_BRACK_1;
