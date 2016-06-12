@@ -117,11 +117,6 @@ class HTMLParserTest {
       .add("wee </~~~ </~~ bler<!- <![CDATA[ ha it's cdata ]]>more </s> dumb<><!<<< </sc></script>")
 
       .doc("")
-
      ;
-     char c=0;
-     System.out.print("[");
-     //System.out.print(c);
-     System.out.println("]");
   }
 }
