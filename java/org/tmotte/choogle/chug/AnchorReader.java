@@ -153,10 +153,10 @@ public final class AnchorReader {
     }
     public boolean text(char c, boolean inScript){
       if (state==IN_BODY) {
-        boolean thisWhite=c==' ' || c=='\t';
+        boolean thisWhite=c==' ' || c=='\t' || c==13 || c==10;
         if (textWhite && thisWhite){}
         else {
-          System.out.print(c);
+          //System.out.print(c);
           textWhite=thisWhite;
         }
         return true;

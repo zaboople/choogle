@@ -6,6 +6,7 @@ import org.tmotte.choogle.clientnetty.ChClient;
 import org.tmotte.choogle.clientnetty.PageCrawler;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
+import java.util.List;
 
 public class Main {
   public static void main(String[] args) throws Exception  {
@@ -21,10 +22,12 @@ public class Main {
         //org.tmotte.choogle.servejetty.MyJettyServer.serve();
         MyServer.serve();
       else
-      if (arg0.equals("--client") || arg0.startsWith("-c"))
-        PageCrawler.read(
-          java.util.Arrays.asList(args).subList(1, args.length)
-        );
+      if (arg0.equals("--client") || arg0.startsWith("-c")){
+        List<String> urls=java.util.Arrays.asList(args).subList(1, args.length);
+        System.out.println("Starting up, gonna read: "+urls);
+        for (String u:urls)
+          new PageCrawler(u).read(urls);
+      }
       else
         help();
     } catch (Exception e) {

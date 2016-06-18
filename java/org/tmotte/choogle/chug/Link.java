@@ -1,7 +1,7 @@
 package org.tmotte.choogle.chug;
 import java.net.URI;
 
-/** FIXME you don't need this. */
+
 public class Link {
   String url;
   String title;
@@ -35,6 +35,9 @@ public class Link {
       if (url.startsWith("//"))
         //Crazy, but google does this:
         return new URI("http:"+url);
+      else
+      if (url.startsWith("javascript:"))
+        return null;
       else
       if (base==null)
         return null;

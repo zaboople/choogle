@@ -84,10 +84,12 @@ public final class ChClient {
     return read(Link.getURI(uriStr));
   }
   public ChannelFuture read(URI uri) throws Exception {
-    return read(uri, connect(uri));
+    Channel c=connect(uri);
+    read(uri, c);
+    return c.closeFuture();
   }
 
-  public ChannelFuture read(URI uri, Channel channel) throws Exception {
+  public static void read(URI uri, Channel channel) throws Exception {
     try {
 
       // Prepare the HTTP request.
@@ -100,15 +102,17 @@ public final class ChClient {
       //setFakeCookie(request);
 
       // Send the HTTP request.
+      System.out.println("READING "+uri);
       channel.writeAndFlush(request);
-      return channel.closeFuture();//.sync();
+      System.out.println("AND? "+uri);
+      //return channel.closeFuture();//.sync();
 
     } finally {
     }
   }
 
 
-  private void setFakeCookie(HttpRequest request) throws Exception {
+  private static void setFakeCookie(HttpRequest request) throws Exception {
     request.headers().set(
      HttpHeaders.Names.COOKIE,
       ClientCookieEncoder.LAX.encode(
