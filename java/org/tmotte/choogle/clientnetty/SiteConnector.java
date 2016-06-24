@@ -45,20 +45,7 @@ public final class SiteConnector {
     this.port=port;
   }
   public static SiteConnector create(EventLoopGroup elg, Chreceiver r, URI uri) throws Exception {
-    String host = uri.getHost();
-    int port = uri.getPort();
-    if (port == -1) {
-      String scheme = uri.getScheme();
-      if (scheme==null) scheme="http";
-      if ("http".equalsIgnoreCase(scheme))
-        port = 80;
-      else
-      if ("https".equalsIgnoreCase(scheme))
-        port = 443;
-      else
-        throw new Exception("Can't derive port");
-    }
-    return new SiteConnector(elg, r, host, port, port==443);
+    return new SiteConnector(elg, r, uri.getHost(), uri.getPort(), uri.getScheme().equals("https"));
   }
 
   public Channel connect() throws Exception {

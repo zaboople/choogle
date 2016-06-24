@@ -146,6 +146,9 @@ public class HTMLParser {
     void reset(){
       record=true;
       recordAttr=true;
+      inScript=false;
+      tagIsClosing=false;
+      bufTagName.setLength(0);
       reader.reset();
     }
 

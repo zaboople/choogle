@@ -45,16 +45,17 @@ public final class AnchorReader {
     bufURL=new StringBuilder(),
     bufTitle=new StringBuilder();
   private HTMLParser parser;
-
+  private MyListener listener=new MyListener();
 
   ///////////////////////////
   // INPUTS + CONSTRUCTOR: //
   ///////////////////////////
 
-  private Collection<Link> values;
-  public AnchorReader(Collection<Link> values) {
+  //FIXME don't take as parameter
+  private Collection<String> values;
+  public AnchorReader(Collection<String> values) {
     this.values=values;
-    parser=new HTMLParser(new MyListener());
+    parser=new HTMLParser(listener);
   }
 
   ///////////////////////
@@ -66,6 +67,9 @@ public final class AnchorReader {
   }
   public void reset() {
     parser.reset();
+    bufURL.setLength(0);
+    bufTitle.setLength(0);
+    listener.reset();//FIXME this also gets called by parser
   }
 
   ////////////////////////////
@@ -73,13 +77,14 @@ public final class AnchorReader {
   ////////////////////////////
 
   private class MyListener implements HTMLParserListener {
-    private boolean textWhite=false;
+    private boolean wasWhite=false;
     private short state=BEFORE_TITLE;
     private StringMatcher matchHref    =new StringMatcher(smcHref);
 
     public void reset() {
       state=BEFORE_TITLE;
-      textWhite=false;
+      wasWhite=false;
+      matchHref.reset();
     }
 
     public boolean tagNameComplete(boolean closingTag, CharSequence cs){
@@ -145,19 +150,17 @@ public final class AnchorReader {
       return false;
     }
     public boolean attrValueComplete(){
-      Link link=new Link();
-      link.url=bufURL.toString();
+      values.add(bufURL.toString());
       bufURL.setLength(0);
-      values.add(link);
       return false;
     }
     public boolean text(char c, boolean inScript){
       if (state==IN_BODY) {
         boolean thisWhite=c==' ' || c=='\t' || c==13 || c==10;
-        if (textWhite && thisWhite){}
+        if (wasWhite && thisWhite){}
         else {
-          //System.out.print(c);
-          textWhite=thisWhite;
+          System.out.print(c);
+          wasWhite=thisWhite;
         }
         return true;
       }
@@ -181,12 +184,12 @@ public final class AnchorReader {
     java.io.BufferedReader br=new java.io.BufferedReader(
       new java.io.InputStreamReader(System.in)
     );
-    Collection<Link> values=new java.util.HashSet<>(1000);
+    Collection<String> values=new java.util.HashSet<>(1000);
     AnchorReader bp=new AnchorReader(values);
     String s=null;
     while ((s=br.readLine())!=null)
       bp.add(s);
     System.out.println();
-    for (Link v : values)   System.out.println(v);
+    for (String v : values)   System.out.println(v);
   }
 }
