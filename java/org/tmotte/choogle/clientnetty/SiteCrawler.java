@@ -25,7 +25,7 @@ import org.tmotte.choogle.chug.Link;
 
 
 public final class SiteCrawler {
-  private final int debugLevel=0;
+  private final int debugLevel=1;
   private final int limit;
   private final EventLoopGroup elGroup;
 
@@ -42,15 +42,15 @@ public final class SiteCrawler {
   private int pageSize=0;
 
 
-  public SiteCrawler(EventLoopGroup elGroup, String uri, int limit) throws Exception{
-    this(elGroup, Link.getURI(uri), limit);
-  }
   public SiteCrawler(EventLoopGroup elGroup, URI uri, int limit){
     if (debug(1))
       System.out.println("SITE: "+uri);
     this.elGroup=elGroup;
     this.uri=uri;
     this.limit=limit;
+  }
+  public SiteCrawler(EventLoopGroup elGroup, String uri, int limit) throws Exception{
+    this(elGroup, Link.getURI(uri), limit);
   }
   public SiteCrawler start() throws Exception {
     this.channel=SiteConnector.create(elGroup, myReceiver, uri).connect();
@@ -88,29 +88,30 @@ public final class SiteCrawler {
     String host=uri.getHost();
     String scheme=uri.getScheme();
     int port=uri.getPort();
-    for (String maybeStr: tempLinks) {
-      URI maybe=null;
-      try {
-        maybe=Link.getURI(uri, maybeStr);
-      } catch (Exception e) {
-        e.printStackTrace();//FIXME add to list
-        continue;
-      }
-      if (maybe==null)
-        continue;
-
-      // Only crawl it if it's the same host/scheme/port,
-      // otherwise you need to go to a different channel.
-      if (maybe.getHost().equals(host) &&
-          maybe.getScheme().equals(scheme) &&
-          maybe.getPort()==port){
-        if (!siteURIs.contains(maybe)){
-          scheduled.add(maybe);
-          siteURIs.add(maybe);
+    if (scheduled.size()<limit)
+      for (String maybeStr: tempLinks) {
+        URI maybe=null;
+        try {
+          maybe=Link.getURI(uri, maybeStr);
+        } catch (Exception e) {
+          e.printStackTrace();//FIXME add to list
+          continue;
         }
+        if (maybe==null)
+          continue;
+
+        // Only crawl it if it's the same host/scheme/port,
+        // otherwise you need to go to a different channel.
+        if (maybe.getHost().equals(host) &&
+            maybe.getScheme().equals(scheme) &&
+            maybe.getPort()==port){
+          if (!siteURIs.contains(maybe)){
+            scheduled.add(maybe);
+            siteURIs.add(maybe);
+          }
+        }
+        else elsewhere.add(maybe);
       }
-      else elsewhere.add(maybe);
-    }
     tempLinks.clear();
     if (debug(1))
       System.out.append("SCHEDULED: "+scheduled.size()+" ELSEWHERE "+elsewhere.size());
