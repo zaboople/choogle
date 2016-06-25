@@ -3,25 +3,7 @@ import java.net.URI;
 
 
 public class Link {
-  String url;
-  String title;
 
-  public @Override String toString() {
-    return url;
-  }
-  public @Override boolean equals(Object x) {
-    if (!(x instanceof Link))
-      return false;
-    Link lk=(Link)x;
-    return lk.url!=null && lk.url.equals(this.url);
-  }
-  public @Override int hashCode(){
-    return url.hashCode();
-  }
-
-  public URI getURI(URI base) throws Exception {
-    return getURI(base, url);
-  }
   public static URI getURI(String url) throws Exception {
     return getURI(null, url);
   }

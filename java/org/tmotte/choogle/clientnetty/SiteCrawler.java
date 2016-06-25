@@ -23,9 +23,17 @@ import java.util.HashSet;
 import org.tmotte.choogle.chug.AnchorReader;
 import org.tmotte.choogle.chug.Link;
 
-
+/**
+ * Crawls a single web site. Also makes a list of external links but doesn't
+ * do anything with them; in fact it <b>can't</b> even if it wanted to, because
+ * SiteCrawler is tied to a single I/O Channel, which means
+ * a specific domain/port/protocol. Most importantly, If SiteCrawler immediately gets a redirect
+ * because, say, http://foo.com always redirects to https://www.foo.com, a new SiteCrawler must be
+ * created. WorldCrawler handles this responsibility and uses SiteCrawler.wasSiteRedirect()
+ * to find out about it.
+ */
 public final class SiteCrawler {
-  private final int debugLevel=1;
+  private final int debugLevel;
   private final int limit;
   private final EventLoopGroup elGroup;
 
@@ -34,7 +42,7 @@ public final class SiteCrawler {
     elsewhere=new HashSet<>();
   private final ArrayDeque<URI> scheduled=new ArrayDeque<>(128);
   private final Collection<String> tempLinks=new HashSet<>(128);
-  private final AnchorReader anchorBP=new AnchorReader(tempLinks);
+  private final AnchorReader pageParser;
 
   private URI uri;
   private Channel channel;
@@ -42,15 +50,22 @@ public final class SiteCrawler {
   private int pageSize=0;
 
 
-  public SiteCrawler(EventLoopGroup elGroup, URI uri, int limit){
+  public SiteCrawler(EventLoopGroup elGroup, URI uri, int limit, int debugLevel){
+    this.debugLevel=debugLevel;
     if (debug(1))
       System.out.println("SITE: "+uri);
+    this.pageParser=new AnchorReader(
+      tempLinks,
+      debug(3)
+        ?x -> System.out.print(x)
+        :null
+    );
     this.elGroup=elGroup;
     this.uri=uri;
     this.limit=limit;
   }
-  public SiteCrawler(EventLoopGroup elGroup, String uri, int limit) throws Exception{
-    this(elGroup, Link.getURI(uri), limit);
+  public SiteCrawler(EventLoopGroup elGroup, String uri, int limit, int debugLevel) throws Exception{
+    this(elGroup, Link.getURI(uri), limit, debugLevel);
   }
   public SiteCrawler start() throws Exception {
     this.channel=SiteConnector.create(elGroup, myReceiver, uri).connect();
@@ -83,7 +98,7 @@ public final class SiteCrawler {
     channel.writeAndFlush(request);
   }
   private void addLinks() {
-    if (debug(1))
+    if (debug(2))
       System.out.println("LINK COUNT: "+tempLinks.size());
     String host=uri.getHost();
     String scheme=uri.getScheme();
@@ -113,7 +128,7 @@ public final class SiteCrawler {
         else elsewhere.add(maybe);
       }
     tempLinks.clear();
-    if (debug(1))
+    if (debug(2))
       System.out.append("SCHEDULED: "+scheduled.size()+" ELSEWHERE "+elsewhere.size());
   }
 
@@ -121,39 +136,36 @@ public final class SiteCrawler {
 
   private Chreceiver myReceiver = new Chreceiver() {
     @Override public void start(HttpResponse resp){
-      if (debug(1)) System.out.append("\nSTARTING: ").append(uri.toString()).append(" ");
-      anchorBP.reset();
+      if (debug(2)) System.out.append("\nSTARTING: ").append(uri.toString()).append(" ");
+      pageParser.reset();
       int statusCode=resp.getStatus().code();
-      if (debug(1)) System.out.print(statusCode);
+      if (debug(2)) System.out.print(statusCode);
       if (statusCode==HttpResponseStatus.FOUND.code() ||
           statusCode==HttpResponseStatus.MOVED_PERMANENTLY.code()) {
         HttpHeaders headers = resp.headers();
         String location=headers.get(HttpHeaders.Names.LOCATION);
         if (location!=null) {
           tempLinks.add(location);
-          if (debug(1)) System.out.append(" ").append(location);
+          if (debug(2)) System.out.append(" ").append(location);
         }
       }
       else
         count++;
-      if (debug(1)) System.out.println();
+      if (debug(2)) System.out.println();
     }
     @Override public void body(HttpContent body){
       String s=body.content().toString(CharsetUtil.UTF_8);
       pageSize+=s.length();
-      if (debug(1))
-        if (debug(2)) {
-          System.out.print("...");
-          if (s.length()<20)
-            System.out.print(s);
-          else
-            System.out.print(s.substring(s.length()-20));
+      if (debug(2))
+        if (debug(4)) {
+          System.out.print("\n>>>");
+          System.out.print(s);
+          System.out.print("<<<\n");
         }
         else
           System.out.print(".");
 
-      if (true || scheduled.size()<limit)
-        anchorBP.add(s);
+      pageParser.add(s);
     }
     @Override public void complete(){
       if (debug(1))
@@ -161,13 +173,16 @@ public final class SiteCrawler {
           .append(String.valueOf(count)).append(" ")
           .append(String.valueOf(pageSize / 1024)).append("K")
           .append(" ").append(uri.toString()).append("\n")
+          .append("TITLE: ").append(pageParser.getTitle())
+          .append("\n\n")
           ;
       if (count<limit){
         pageSize=0;
         addLinks();
         if (scheduled.size()>0)
           try {
-            read(scheduled.removeFirst());
+            uri=scheduled.removeFirst();
+            read(uri);
             return; //RETURN
           } catch (Exception e) {
             e.printStackTrace();

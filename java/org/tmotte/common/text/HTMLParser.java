@@ -149,6 +149,8 @@ public class HTMLParser {
       inScript=false;
       tagIsClosing=false;
       bufTagName.setLength(0);
+
+      // The caller might do this already, but so what:
       reader.reset();
     }
 

@@ -6,7 +6,6 @@ import org.tmotte.common.text.StringMatcher;
 import org.tmotte.common.text.StringMatcherStatic;
 import org.tmotte.common.text.StringMatcherChars;
 
-/** FIXME **NOT** SELF-RESETTING */
 public final class AnchorReader {
 
   /////////////////////////////////////
@@ -23,6 +22,10 @@ public final class AnchorReader {
     matchScript=new StringMatcherStatic("script")
     ,
     matchStyle =new StringMatcherStatic("style")
+    ,
+    matchP =new StringMatcherStatic("p")
+    ,
+    matchDiv =new StringMatcherStatic("div")
     ;
   private static StringMatcherChars
     smcHref  =new StringMatcherChars("href");
@@ -45,7 +48,7 @@ public final class AnchorReader {
     bufURL=new StringBuilder(),
     bufTitle=new StringBuilder();
   private HTMLParser parser;
-  private MyListener listener=new MyListener();
+  private MyListener listener;
 
   ///////////////////////////
   // INPUTS + CONSTRUCTOR: //
@@ -53,8 +56,9 @@ public final class AnchorReader {
 
   //FIXME don't take as parameter
   private Collection<String> values;
-  public AnchorReader(Collection<String> values) {
+  public AnchorReader(Collection<String> values, CharAppender charAppender) {
     this.values=values;
+    listener=new MyListener(charAppender);
     parser=new HTMLParser(listener);
   }
 
@@ -62,6 +66,9 @@ public final class AnchorReader {
   // PUBLIC FUNCTIONS: //
   ///////////////////////
 
+  public String getTitle() {
+    return bufTitle.toString();
+  }
   public void add(String s) {
     parser.add(s);
   }
@@ -77,10 +84,15 @@ public final class AnchorReader {
   ////////////////////////////
 
   private class MyListener implements HTMLParserListener {
+    private final CharAppender charAppender;
+
     private boolean wasWhite=false;
     private short state=BEFORE_TITLE;
-    private StringMatcher matchHref    =new StringMatcher(smcHref);
+    private StringMatcher matchHref=new StringMatcher(smcHref);
 
+    public MyListener(CharAppender charAppender) {
+      this.charAppender=charAppender;
+    }
     public void reset() {
       state=BEFORE_TITLE;
       wasWhite=false;
@@ -88,11 +100,13 @@ public final class AnchorReader {
     }
 
     public boolean tagNameComplete(boolean closingTag, CharSequence cs){
-      if (state==BEFORE_TITLE && matchTitle.matches(cs)){
-        state=closingTag
-          ?BEFORE_BODY
-          :IN_TITLE;
-        return false;
+      if (matchTitle.matches(cs)){
+        if (state==BEFORE_TITLE)
+          state=closingTag ?BEFORE_BODY :IN_TITLE;
+        else
+        if (state==IN_TITLE)
+          state=BEFORE_BODY;
+        return state==IN_TITLE;
       }
       if (matchAnchor.matches(cs)) {
         if (closingTag) return false;
@@ -106,11 +120,13 @@ public final class AnchorReader {
         return !closingTag;
       }
       if (matchScript.matches(cs)) {
-        state=closingTag ?IN_BODY :IN_BODY_GARBAGE_SCRIPT;
+        if (state==IN_BODY || state==IN_BODY_GARBAGE_SCRIPT)
+          state=closingTag ?IN_BODY :IN_BODY_GARBAGE_SCRIPT;
         return closingTag;
       }
       if (matchStyle.matches(cs)) {
-        state=closingTag ?IN_BODY :IN_BODY_GARBAGE_STYLE;
+        if (state==IN_BODY || state==IN_BODY_GARBAGE_STYLE)
+          state=closingTag ?IN_BODY :IN_BODY_GARBAGE_STYLE;
         return closingTag;
       }
       return false;
@@ -118,8 +134,13 @@ public final class AnchorReader {
     public boolean tagComplete(boolean selfClosing){
       if (state==IN_ANCHOR)
         state=IN_BODY;
+      else
+      if (state==IN_TITLE && !selfClosing)
+        return true;
+      else
       if (state==IN_BODY_GARBAGE_SCRIPT && selfClosing)
         state=IN_BODY;
+      else
       if (state==IN_BODY_GARBAGE_STYLE && selfClosing)
         state=IN_BODY;
       return state==IN_BODY;
@@ -155,13 +176,18 @@ public final class AnchorReader {
       return false;
     }
     public boolean text(char c, boolean inScript){
-      if (state==IN_BODY) {
+      if (state==IN_BODY && charAppender!=null) {
         boolean thisWhite=c==' ' || c=='\t' || c==13 || c==10;
         if (wasWhite && thisWhite){}
         else {
-          System.out.print(c);
+          charAppender.append(c);
           wasWhite=thisWhite;
         }
+        return true;
+      }
+      else
+      if (state==IN_TITLE) {
+        bufTitle.append(c);
         return true;
       }
       return false;
@@ -185,11 +211,13 @@ public final class AnchorReader {
       new java.io.InputStreamReader(System.in)
     );
     Collection<String> values=new java.util.HashSet<>(1000);
-    AnchorReader bp=new AnchorReader(values);
+    AnchorReader bp=new AnchorReader(values, x->System.out.print(x));
     String s=null;
     while ((s=br.readLine())!=null)
       bp.add(s);
     System.out.println();
     for (String v : values)   System.out.println(v);
+    System.out.println("TITLE "+bp.getTitle());
+    System.out.flush();
   }
 }

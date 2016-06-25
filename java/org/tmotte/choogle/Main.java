@@ -22,21 +22,36 @@ public class Main {
       MyServer.serve();
     else
     if (arg0.equals("--client") || arg0.startsWith("-c")){
-      List<String> newArgs=java.util.Arrays.asList(args).subList(1, args.length);
-      if (newArgs.size()==0){
+      int depth=1, debugLevel=0;
+      int i=1;
+      while (i < args.length)
+        if (args[i].equals("--depth") || args[i].startsWith("-d"))
+          try {
+            depth=Integer.parseInt(args[++i]);
+            i++;
+          } catch (Exception e) {
+            help("Not an integer: "+args[i]);
+            return;
+          }
+        else
+        if (args[i].equals("--verbose") || args[i].startsWith("-v")){
+          debugLevel++;
+          i++;
+        }
+        else
+        if (args[i].startsWith("-")){
+          help("Unrecognized argument: "+args[i]);
+          return;
+        }
+        else
+          break;
+      List<String> urls=java.util.Arrays.asList(args).subList(i, args.length);
+      if (urls.size()==0){
         help("Missing depth & list of URLs");
         return;
       }
-      int depth;
-      try {
-        depth=Integer.parseInt(newArgs.get(0));
-      } catch (Exception e) {
-        help("Not an integer: "+newArgs.get(0));
-        return;
-      }
-      List<String> urls=newArgs.subList(1, newArgs.size());
       System.out.println("Crawling: "+urls.stream().collect(Collectors.joining(", ")));
-      new WorldCrawler().crawl(urls, depth);
+      new WorldCrawler().crawl(urls, depth, debugLevel);
     }
     else
       help();
