@@ -136,7 +136,8 @@ public class HTMLParser {
       recordAttr=true,
       inScript=false,
       tagIsClosing=false;
-    private StringBuilder bufTagName=new StringBuilder();
+    private StringBuilder bufTagName=
+      new StringBuilder();
 
     InnerParser(HTMLParserListener reader) {
       this.reader=reader;
@@ -234,7 +235,8 @@ public class HTMLParser {
           if (
               !(c>='a' && c<='z')&&
               !(c>='A' && c<='Z') &&
-              !(c>='0' && c<='9')
+              !(c>='0' && c<='9') &&
+              c!='-' && c!='_'
             )
             return tagGarbaged(
               bufTagName.insert(0, (tagIsClosing ?"</" :"<")),

@@ -33,10 +33,16 @@ import org.tmotte.choogle.chug.Link;
  * to find out about it.
  */
 public final class SiteCrawler {
+
+  // NON-CHANGING STATE
   private final int debugLevel;
   private final int limit;
   private final EventLoopGroup elGroup;
 
+  // CHANGE-ONCE STATE:
+  private Channel channel;
+
+  // INTERNALLY CHANGING STATE:
   private final Set<URI>
     siteURIs=new HashSet<>(),
     elsewhere=new HashSet<>();
@@ -44,10 +50,11 @@ public final class SiteCrawler {
   private final Collection<String> tempLinks=new HashSet<>(128);
   private final AnchorReader pageParser;
 
+  // RAPIDLY CHANGING STATE:
   private URI uri;
-  private Channel channel;
   private int count=0;
   private int pageSize=0;
+  private boolean earlyClose=false;
 
 
   public SiteCrawler(EventLoopGroup elGroup, URI uri, int limit, int debugLevel){
@@ -81,16 +88,19 @@ public final class SiteCrawler {
       :null;
   }
 
-
+  /////////////////////////
   // INTERNAL FUNCTIONS: //
+  /////////////////////////
 
   private boolean debug(int level) {
     return level <= debugLevel;
   }
 
   private void read(URI uri) throws Exception {
+    String rawPath=uri.getRawPath();
+    if (debug(2)) System.out.append("\nSTARTING: ").append(rawPath);
     HttpRequest request = new DefaultFullHttpRequest(
-      HttpVersion.HTTP_1_1, HttpMethod.GET, uri.getRawPath()
+      HttpVersion.HTTP_1_1, HttpMethod.GET, rawPath
     );
     request.headers().set(HttpHeaders.Names.HOST, uri.getHost());
     request.headers().set(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
@@ -132,21 +142,26 @@ public final class SiteCrawler {
       System.out.append("SCHEDULED: "+scheduled.size()+" ELSEWHERE "+elsewhere.size());
   }
 
-  // INTERNAL RECEIVER OF DATA:
+  ////////////////////////////////
+  // INTERNAL RECEIVER OF DATA: //
+  ////////////////////////////////
 
   private Chreceiver myReceiver = new Chreceiver() {
     @Override public void start(HttpResponse resp){
-      if (debug(2)) System.out.append("\nSTARTING: ").append(uri.toString()).append(" ");
+      if (debug(2)) System.out.append("\nRESPONSE: ").append(uri.toString()).append(" ");
       pageParser.reset();
       int statusCode=resp.getStatus().code();
-      if (debug(2)) System.out.print(statusCode);
+      HttpHeaders headers = resp.headers();
+      String connectionStatus=headers.get(HttpHeaders.Names.CONNECTION);
+      if ("CLOSE".equals(connectionStatus) || "close".equals(connectionStatus))
+        earlyClose=true;
+      if (debug(2)) System.out.append(String.valueOf(statusCode)).append(" ").append(connectionStatus);
       if (statusCode==HttpResponseStatus.FOUND.code() ||
           statusCode==HttpResponseStatus.MOVED_PERMANENTLY.code()) {
-        HttpHeaders headers = resp.headers();
         String location=headers.get(HttpHeaders.Names.LOCATION);
         if (location!=null) {
           tempLinks.add(location);
-          if (debug(2)) System.out.append(" ").append(location);
+          if (debug(2)) System.out.append("\nREDIRECT: ").append(location);
         }
       }
       else
@@ -188,6 +203,7 @@ public final class SiteCrawler {
             e.printStackTrace();
           }
       }
+      if (debug(2)) System.out.println("ALL LINKS READ, CLOSING");
       channel.close();
     }
   };

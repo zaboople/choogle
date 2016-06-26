@@ -27,38 +27,50 @@ import org.tmotte.common.text.HTMLParser;
  */
 public final class WorldCrawler  {
 
-  public void crawl(List<String> uris, int limit, int debugLevel) throws Exception {
-    crawl(uris, limit, debugLevel, true);
+  public static void crawl(List<String> uris, int limit, int debugLevel) throws Exception {
+    WorldCrawler wc=new WorldCrawler(limit, debugLevel);
+    wc.crawl(uris);
   }
 
-  private void crawl(List<String> uris, int limit, int debugLevel, boolean retryOnce) throws Exception {
-    List<SiteCrawler> crawlers=new ArrayList<>(uris.size());
-    EventLoopGroup elGroup=new NioEventLoopGroup();
-    try {
-      for (String u : uris) {
-        SiteCrawler sc=new SiteCrawler(elGroup, u, limit, debugLevel);
-        crawlers.add(sc);
-        sc.start();
-      }
-      for (SiteCrawler sc: crawlers)
-        sc.finish().sync();
+  private final EventLoopGroup elGroup=new NioEventLoopGroup();
+  private final int limit;
+  private final int debugLevel;
 
-      // This handles the case where the initial page caused a redirect, from foo.com to www.foo.com,
-      // or maybe from http to https, etc. Note the once-only recursion.
-      if (retryOnce) {
-        uris=null;
-        for (SiteCrawler sc: crawlers){
-          URI newURI=sc.wasSiteRedirect();
-          if (newURI!=null){
-            if (uris==null) uris=new ArrayList<String>();
-            uris.add(newURI.toString());
-          }
-        }
-        if (uris!=null)
-          crawl(uris, limit, debugLevel, false);
-      }
+  public WorldCrawler(int limit, int debugLevel){
+    this.limit=limit;
+    this.debugLevel=debugLevel;
+  }
+  public void crawl(List<String> uris) throws Exception {
+    try {
+      crawl(uris, true);
     } finally {
       elGroup.shutdownGracefully(0, 0, java.util.concurrent.TimeUnit.MILLISECONDS);
     }
+  }
+
+  private List<SiteCrawler> crawl(List<String> uris, boolean retryOnce) throws Exception {
+    List<SiteCrawler> crawlers=new ArrayList<>(uris.size());
+    for (String u : uris) {
+      SiteCrawler sc=new SiteCrawler(elGroup, u, limit, debugLevel);
+      crawlers.add(sc);
+      sc.start();
+    }
+    for (SiteCrawler sc: crawlers) sc.finish().sync(); //FIXME don't wait until all are finished to recrawl
+
+    // This handles the case where the initial page caused a redirect, from foo.com to www.foo.com,
+    // or maybe from http to https, etc. Note the once-only recursion.
+    if (retryOnce) {
+      uris=null;
+      for (SiteCrawler sc: crawlers){
+        URI newURI=sc.wasSiteRedirect();
+        if (newURI!=null){
+          if (uris==null) uris=new ArrayList<String>();
+          uris.add(newURI.toString());
+        }
+      }
+      if (uris!=null)
+        crawl(uris, false);
+    }
+    return crawlers;
   }
 }

@@ -129,6 +129,10 @@ public final class AnchorReader {
           state=closingTag ?IN_BODY :IN_BODY_GARBAGE_STYLE;
         return closingTag;
       }
+      if (state==IN_BODY && charAppender!=null && !wasWhite && (matchP.matches(cs) || matchDiv.matches(cs))){
+        charAppender.append((char)10);
+        wasWhite=true;
+      }
       return false;
     }
     public boolean tagComplete(boolean selfClosing){
@@ -178,8 +182,7 @@ public final class AnchorReader {
     public boolean text(char c, boolean inScript){
       if (state==IN_BODY && charAppender!=null) {
         boolean thisWhite=c==' ' || c=='\t' || c==13 || c==10;
-        if (wasWhite && thisWhite){}
-        else {
+        if (!wasWhite || !thisWhite) {
           charAppender.append(c);
           wasWhite=thisWhite;
         }
