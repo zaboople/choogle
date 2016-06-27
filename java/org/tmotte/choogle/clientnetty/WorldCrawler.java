@@ -24,22 +24,35 @@ import org.tmotte.common.text.HTMLParser;
 
 /**
  * Crawls a group of web sites in parallel, waiting for all to finish.
+ * FIXME DOESN'T HANDLE WHEN SITE CLOSES CONNECTION
  */
 public final class WorldCrawler  {
+
+  ///////////////////////
+  // STATIC FUNCTIONS: //
+  ///////////////////////
 
   public static void crawl(List<String> uris, int limit, int debugLevel) throws Exception {
     WorldCrawler wc=new WorldCrawler(limit, debugLevel);
     wc.crawl(uris);
   }
 
+  //////////////////////////////////
+  // PRIVATE STATE & CONSTRUCTOR: //
+  //////////////////////////////////
+
   private final EventLoopGroup elGroup=new NioEventLoopGroup();
   private final int limit;
   private final int debugLevel;
-
   public WorldCrawler(int limit, int debugLevel){
     this.limit=limit;
     this.debugLevel=debugLevel;
   }
+
+  ///////////////////////
+  // PUBLIC FUNCTIONS: //
+  ///////////////////////
+
   public void crawl(List<String> uris) throws Exception {
     try {
       crawl(uris, true);
@@ -48,13 +61,12 @@ public final class WorldCrawler  {
     }
   }
 
+  /////////////////////////
+  // INTERNAL FUNCTIONS: //
+  /////////////////////////
+
   private List<SiteCrawler> crawl(List<String> uris, boolean retryOnce) throws Exception {
-    List<SiteCrawler> crawlers=new ArrayList<>(uris.size());
-    for (String u : uris) {
-      SiteCrawler sc=new SiteCrawler(elGroup, u, limit, debugLevel);
-      crawlers.add(sc);
-      sc.start();
-    }
+    List<SiteCrawler> crawlers=start(uris);
     for (SiteCrawler sc: crawlers) sc.finish().sync(); //FIXME don't wait until all are finished to recrawl
 
     // This handles the case where the initial page caused a redirect, from foo.com to www.foo.com,
@@ -70,6 +82,16 @@ public final class WorldCrawler  {
       }
       if (uris!=null)
         crawl(uris, false);
+    }
+    return crawlers;
+  }
+
+  private List<SiteCrawler> start(List<String> uris) throws Exception {
+    List<SiteCrawler> crawlers=new ArrayList<>(uris.size());
+    for (String u : uris) {
+      SiteCrawler sc=new SiteCrawler(elGroup, u, limit, debugLevel);
+      crawlers.add(sc);
+      sc.start();
     }
     return crawlers;
   }
