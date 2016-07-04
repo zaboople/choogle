@@ -24,7 +24,7 @@ import org.tmotte.common.text.HTMLParser;
 
 /**
  * Crawls a group of web sites in parallel, waiting for all to finish.
- * FIXME DOESN'T HANDLE WHEN SITE CLOSES CONNECTION
+ * FIXME DOESN'T HANDLE WHEN SITE CLOSES CONNECTION  http://abcnews.go.com/Topics
  */
 public final class WorldCrawler  {
 
@@ -72,17 +72,23 @@ public final class WorldCrawler  {
     // This handles the case where the initial page caused a redirect, from foo.com to www.foo.com,
     // or maybe from http to https, etc. Note the once-only recursion.
     if (retryOnce) {
-      uris=null;
+      uris=new ArrayList<>(uris.size());
       for (SiteCrawler sc: crawlers){
         URI newURI=sc.wasSiteRedirect();
-        if (newURI!=null){
-          if (uris==null) uris=new ArrayList<String>();
+        if (newURI!=null)
           uris.add(newURI.toString());
-        }
       }
-      if (uris!=null)
+      if (uris.size()>0)
         crawl(uris, false);
     }
+
+
+    do {
+      for (int i=crawlers.size()-1; i>=0; i--)
+        if (!crawlers.get(i).reconnectIfUnfinished())
+          crawlers.remove(i);
+      for (SiteCrawler sc: crawlers) sc.finish().sync();
+    } while (crawlers.size()>0);
     return crawlers;
   }
 

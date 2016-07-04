@@ -51,7 +51,7 @@ public final class SiteCrawler {
   private final AnchorReader pageParser;
 
   // RAPIDLY CHANGING STATE:
-  private URI uri;
+  private URI currentURI;
   private int count=0;
   private int pageSize=0;
   private boolean earlyClose=false;
@@ -68,15 +68,17 @@ public final class SiteCrawler {
         :null
     );
     this.elGroup=elGroup;
-    this.uri=uri;
+    this.currentURI=uri;
     this.limit=limit;
   }
   public SiteCrawler(EventLoopGroup elGroup, String uri, int limit, int debugLevel) throws Exception{
     this(elGroup, Link.getURI(uri), limit, debugLevel);
   }
+
+
   public SiteCrawler start() throws Exception {
-    this.channel=SiteConnector.create(elGroup, myReceiver, uri).connect();
-    read(uri);
+    this.channel=SiteConnector.create(elGroup, myReceiver, currentURI).connect();
+    read(currentURI);
     return this;
   }
   public ChannelFuture finish() throws Exception {
@@ -86,6 +88,14 @@ public final class SiteCrawler {
     return count==0 && scheduled.size()==0 && elsewhere.size()>=1
       ?elsewhere.iterator().next()
       :null;
+  }
+  public boolean reconnectIfUnfinished() throws Exception {
+    if ((earlyClose || count<limit) && scheduled.size() > 0){
+      currentURI=scheduled.removeFirst();
+      start();
+      return true;
+    }
+    return false;
   }
 
   /////////////////////////
@@ -97,6 +107,13 @@ public final class SiteCrawler {
   }
 
   private void read(URI uri) throws Exception {
+    if (!channel.isOpen() || !channel.isActive()) {
+      scheduled.add(uri);
+      earlyClose=true;
+      return;
+    }
+    currentURI=uri;
+    earlyClose=false;
     String rawPath=uri.getRawPath();
     if (debug(2)) System.out.append("\nSTARTING: ").append(rawPath);
     HttpRequest request = new DefaultFullHttpRequest(
@@ -110,14 +127,14 @@ public final class SiteCrawler {
   private void addLinks() {
     if (debug(2))
       System.out.println("LINK COUNT: "+tempLinks.size());
-    String host=uri.getHost();
-    String scheme=uri.getScheme();
-    int port=uri.getPort();
+    String host=currentURI.getHost();
+    String scheme=currentURI.getScheme();
+    int port=currentURI.getPort();
     if (scheduled.size()<limit)
       for (String maybeStr: tempLinks) {
         URI maybe=null;
         try {
-          maybe=Link.getURI(uri, maybeStr);
+          maybe=Link.getURI(currentURI, maybeStr);
         } catch (Exception e) {
           e.printStackTrace();//FIXME add to list
           continue;
@@ -132,14 +149,16 @@ public final class SiteCrawler {
             maybe.getPort()==port){
           if (!siteURIs.contains(maybe)){
             scheduled.add(maybe);
-            siteURIs.add(maybe);
           }
         }
         else elsewhere.add(maybe);
       }
     tempLinks.clear();
     if (debug(2))
-      System.out.append("SCHEDULED: "+scheduled.size()+" ELSEWHERE "+elsewhere.size());
+      System.out.append("SCHEDULED: ")
+        .append(String.valueOf(scheduled.size()))
+        .append(" ELSEWHERE: ")
+        .append(String.valueOf(elsewhere.size()));
   }
 
   ////////////////////////////////
@@ -148,7 +167,8 @@ public final class SiteCrawler {
 
   private Chreceiver myReceiver = new Chreceiver() {
     @Override public void start(HttpResponse resp){
-      if (debug(2)) System.out.append("\nRESPONSE: ").append(uri.toString()).append(" ");
+      siteURIs.add(currentURI);
+      if (debug(2)) System.out.append("\nRESPONSE: ").append(currentURI.toString()).append(" ");
       pageParser.reset();
       int statusCode=resp.getStatus().code();
       HttpHeaders headers = resp.headers();
@@ -187,7 +207,7 @@ public final class SiteCrawler {
         System.out.append("\nCOMPLETE ")
           .append(String.valueOf(count)).append(" ")
           .append(String.valueOf(pageSize / 1024)).append("K")
-          .append(" ").append(uri.toString()).append("\n")
+          .append(" ").append(currentURI.toString()).append("\n")
           .append("TITLE: ").append(pageParser.getTitle())
           .append("\n\n")
           ;
@@ -196,8 +216,7 @@ public final class SiteCrawler {
         addLinks();
         if (scheduled.size()>0)
           try {
-            uri=scheduled.removeFirst();
-            read(uri);
+            read(scheduled.removeFirst());
             return; //RETURN
           } catch (Exception e) {
             e.printStackTrace();
