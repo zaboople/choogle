@@ -13,6 +13,7 @@ import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.codec.http.QueryStringDecoder;
 import io.netty.handler.codec.http.cookie.Cookie;
@@ -24,7 +25,6 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Map;
 import java.util.Set;
-import static io.netty.handler.codec.http.HttpVersion.*; //FIXME
 
 public class DebugHandler extends SimpleChannelInboundHandler<Object> {
 
@@ -130,7 +130,7 @@ public class DebugHandler extends SimpleChannelInboundHandler<Object> {
   private boolean writeResponse(HttpObject currentObj, ChannelHandlerContext ctx) {
     boolean keepAlive = HttpHeaders.isKeepAlive(request);
     FullHttpResponse response = new DefaultFullHttpResponse(
-      HTTP_1_1,
+      HttpVersion.HTTP_1_1,
       currentObj.getDecoderResult().isSuccess()
         ? HttpResponseStatus.OK
         : HttpResponseStatus.BAD_REQUEST,
@@ -161,10 +161,10 @@ public class DebugHandler extends SimpleChannelInboundHandler<Object> {
   }
 
   private void send100Continue(ChannelHandlerContext ctx) {
-    if (HttpHeaders.is100ContinueExpected(request)) {
-      FullHttpResponse response = new DefaultFullHttpResponse(HTTP_1_1, HttpResponseStatus.CONTINUE);
-      ctx.write(response);
-    }
+    if (HttpHeaders.is100ContinueExpected(request))
+      ctx.write(
+        new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.CONTINUE)
+      );
   }
 
   @Override
