@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.Set;
 import static io.netty.handler.codec.http.HttpVersion.*; //FIXME
 
-public class MyServerHandler extends SimpleChannelInboundHandler<Object> {
+public class DebugHandler extends SimpleChannelInboundHandler<Object> {
 
   // Everything is single-threaded so we're cool with holding stuff
   // in variables like this:

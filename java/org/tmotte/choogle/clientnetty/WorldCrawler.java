@@ -32,7 +32,7 @@ public final class WorldCrawler  {
   // STATIC FUNCTIONS: //
   ///////////////////////
 
-  public static void crawl(List<String> uris, int limit, int debugLevel) throws Exception {
+  public static void crawl(List<String> uris, long limit, int debugLevel) throws Exception {
     WorldCrawler wc=new WorldCrawler(limit, debugLevel);
     wc.crawl(uris);
   }
@@ -42,9 +42,9 @@ public final class WorldCrawler  {
   //////////////////////////////////
 
   private final EventLoopGroup elGroup=new NioEventLoopGroup();
-  private final int limit;
+  private final long limit;
   private final int debugLevel;
-  public WorldCrawler(int limit, int debugLevel){
+  public WorldCrawler(long limit, int debugLevel){
     this.limit=limit;
     this.debugLevel=debugLevel;
   }

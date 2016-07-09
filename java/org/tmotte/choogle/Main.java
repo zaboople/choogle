@@ -22,12 +22,12 @@ public class Main {
       MyServer.serve();
     else
     if (arg0.equals("--client") || arg0.startsWith("-c")){
-      int depth=1, debugLevel=1;
-      int i=1;
+      long depth=1;
+      int i=1, debugLevel=1;
       while (i < args.length)
         if (args[i].equals("--depth") || args[i].startsWith("-d"))
           try {
-            depth=Integer.parseInt(args[++i]);
+            depth=Long.parseLong(args[++i]);
             i++;
           } catch (Exception e) {
             help("Not an integer: "+args[i]);
@@ -54,7 +54,7 @@ public class Main {
       WorldCrawler.crawl(urls, depth, debugLevel);
     }
     else
-      help();
+      help("Unexpected: "+arg0);
   }
   private static void help() throws Exception {
     help(null);
@@ -67,8 +67,13 @@ public class Main {
       a.append("\n");
     }
     a.append(
-      "\n\nUsage : java org.tmotte.choogle.Main <--server | --client [urls] | --help> \n"
-    + "   --client: If no url's are given they will be read from stdin"
+      "\n"
+    + "  Usage : java org.tmotte.choogle.Main \\\n "
+    + "       < --help | --server | --client [--verbose | -v] [--depth | -d] [urls]> \n"
+    + "  Parameters:\n"
+    + "    --client: If no url's are given they will be read from stdin\n"
+    + "      --verbose: Debugging information. Specify more than once for even more debugging. \n"
+    + "      --depth:   Number of site URL's to traverse before walking away. \n"
     );
     System.err.flush();
     System.out.flush();

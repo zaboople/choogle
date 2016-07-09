@@ -24,19 +24,18 @@ import org.tmotte.choogle.chug.AnchorReader;
 import org.tmotte.choogle.chug.Link;
 
 /**
- * Crawls a single web site. Also makes a list of external links but doesn't
- * do anything with them; in fact it <b>can't</b> even if it wanted to, because
- * SiteCrawler is tied to a single I/O Channel, which means
- * a specific domain/port/protocol. Most importantly, If SiteCrawler immediately gets a redirect
- * because, say, http://foo.com always redirects to https://www.foo.com, a new SiteCrawler must be
- * created. WorldCrawler handles this responsibility and uses SiteCrawler.wasSiteRedirect()
+ * Crawls a single web site. Also makes a list of external links but doesn't do anything with them;
+ * in fact it <b>can't</b> even if it wanted to, because SiteCrawler is tied to a single I/O Channel,
+ * which means a specific domain/port/protocol. Most importantly, If SiteCrawler immediately gets a
+ * redirect because, say, http://foo.com always redirects to https://www.foo.com, a new SiteCrawler
+ * must be created. WorldCrawler handles this responsibility and uses SiteCrawler.wasSiteRedirect()
  * to find out about it.
  */
 public final class SiteCrawler {
 
   // NON-CHANGING STATE
   private final int debugLevel;
-  private final int limit;
+  private final long limit;
   private final EventLoopGroup elGroup;
 
   // CHANGE-ONCE STATE:
@@ -57,7 +56,7 @@ public final class SiteCrawler {
   private boolean earlyClose=false;
 
 
-  public SiteCrawler(EventLoopGroup elGroup, URI uri, int limit, int debugLevel){
+  public SiteCrawler(EventLoopGroup elGroup, URI uri, long limit, int debugLevel){
     this.debugLevel=debugLevel;
     if (debug(1))
       System.out.println("SITE: "+uri);
@@ -71,7 +70,7 @@ public final class SiteCrawler {
     this.currentURI=uri;
     this.limit=limit;
   }
-  public SiteCrawler(EventLoopGroup elGroup, String uri, int limit, int debugLevel) throws Exception{
+  public SiteCrawler(EventLoopGroup elGroup, String uri, long limit, int debugLevel) throws Exception{
     this(elGroup, Link.getURI(uri), limit, debugLevel);
   }
 
@@ -90,7 +89,7 @@ public final class SiteCrawler {
       :null;
   }
   public boolean reconnectIfUnfinished() throws Exception {
-    if ((earlyClose || count<limit) && scheduled.size() > 0){
+    if ((earlyClose || count<limit || limit==-1) && scheduled.size() > 0){
       currentURI=scheduled.removeFirst();
       start();
       return true;
@@ -130,7 +129,7 @@ public final class SiteCrawler {
     String host=currentURI.getHost();
     String scheme=currentURI.getScheme();
     int port=currentURI.getPort();
-    if (scheduled.size()<limit)
+    if (scheduled.size()<limit || limit == -1)
       for (String maybeStr: tempLinks) {
         URI maybe=null;
         try {
@@ -204,14 +203,13 @@ public final class SiteCrawler {
     }
     @Override public void complete(){
       if (debug(1))
-        System.out.append("\nCOMPLETE ")
-          .append(String.valueOf(count)).append(" ")
-          .append(String.valueOf(pageSize / 1024)).append("K")
-          .append(" ").append(currentURI.toString()).append("\n")
+        System.out.append("\nCOMPLETED: ").append(String.valueOf(count))
+          .append(" SIZE: ").append(String.valueOf(pageSize / 1024)).append("K")
+          .append(" PAGE: ").append(currentURI.toString()).append("\n")
           .append("TITLE: ").append(pageParser.getTitle())
           .append("\n\n")
           ;
-      if (count<limit){
+      if (count<limit || limit == -1){
         pageSize=0;
         addLinks();
         if (scheduled.size()>0)
