@@ -40,11 +40,13 @@ public final class SiteCrawler {
 
   // CHANGE-ONCE STATE:
   private Channel channel;
+  private String sitehost;
+  private String sitescheme;
+  private int siteport;
 
   // INTERNALLY CHANGING STATE:
-  private final Set<URI>
-    siteURIs=new HashSet<>(),
-    elsewhere=new HashSet<>();
+  private final Set<String> alreadyCrawled=new HashSet<>();
+  private final Set<URI>    elsewhere=new HashSet<>();
   private final ArrayDeque<URI> scheduled=new ArrayDeque<>(128);
   private final Collection<String> tempLinks=new HashSet<>(128);
   private final AnchorReader pageParser;
@@ -76,6 +78,10 @@ public final class SiteCrawler {
 
 
   public SiteCrawler start() throws Exception {
+    this.sitehost=currentURI.getHost();
+    this.sitescheme=currentURI.getScheme();
+    this.siteport=currentURI.getPort();
+
     this.channel=SiteConnector.create(elGroup, myReceiver, currentURI).connect();
     read(currentURI);
     return this;
@@ -124,11 +130,6 @@ public final class SiteCrawler {
     channel.writeAndFlush(request);
   }
   private void addLinks() {
-    if (debug(2))
-      System.out.println("LINK COUNT: "+tempLinks.size());
-    String host=currentURI.getHost();
-    String scheme=currentURI.getScheme();
-    int port=currentURI.getPort();
     if (scheduled.size()<limit || limit == -1)
       for (String maybeStr: tempLinks) {
         URI maybe=null;
@@ -143,21 +144,21 @@ public final class SiteCrawler {
 
         // Only crawl it if it's the same host/scheme/port,
         // otherwise you need to go to a different channel.
-        if (maybe.getHost().equals(host) &&
-            maybe.getScheme().equals(scheme) &&
-            maybe.getPort()==port){
-          if (!siteURIs.contains(maybe)){
+        if (maybe.getHost().equals(sitehost) &&
+            maybe.getScheme().equals(sitescheme) &&
+            maybe.getPort()==siteport){
+          if (!alreadyCrawled.contains(maybe.getRawPath()))
             scheduled.add(maybe);
-          }
         }
         else elsewhere.add(maybe);
       }
-    tempLinks.clear();
     if (debug(2))
-      System.out.append("SCHEDULED: ")
-        .append(String.valueOf(scheduled.size()))
-        .append(" ELSEWHERE: ")
-        .append(String.valueOf(elsewhere.size()));
+      System.out
+        .append("LINK COUNT: "+tempLinks.size())
+        .append(" SCHEDULED: ").append(String.valueOf(scheduled.size()))
+        .append(" ELSEWHERE: ").append(String.valueOf(elsewhere.size()))
+        .append("\n");
+    tempLinks.clear();
   }
 
   ////////////////////////////////
@@ -166,15 +167,20 @@ public final class SiteCrawler {
 
   private Chreceiver myReceiver = new Chreceiver() {
     @Override public void start(HttpResponse resp){
-      siteURIs.add(currentURI);
-      if (debug(2)) System.out.append("\nRESPONSE: ").append(currentURI.toString()).append(" ");
+      alreadyCrawled.add(currentURI.getRawPath());
       pageParser.reset();
       int statusCode=resp.getStatus().code();
       HttpHeaders headers = resp.headers();
       String connectionStatus=headers.get(HttpHeaders.Names.CONNECTION);
       if ("CLOSE".equals(connectionStatus) || "close".equals(connectionStatus))
         earlyClose=true;
-      if (debug(2)) System.out.append(String.valueOf(statusCode)).append(" ").append(connectionStatus);
+      if (debug(2))
+        System.out.append("\nRESPONDED: ")
+        .append(currentURI.toString())
+        .append(" STATUS: ")
+        .append(String.valueOf(statusCode))
+        .append(" ")
+        .append(connectionStatus);
       if (statusCode==HttpResponseStatus.FOUND.code() ||
           statusCode==HttpResponseStatus.MOVED_PERMANENTLY.code()) {
         String location=headers.get(HttpHeaders.Names.LOCATION);
@@ -190,7 +196,7 @@ public final class SiteCrawler {
     @Override public void body(HttpContent body){
       String s=body.content().toString(CharsetUtil.UTF_8);
       pageSize+=s.length();
-      if (debug(2))
+      if (debug(2)) {
         if (debug(4)) {
           System.out.print("\n>>>");
           System.out.print(s);
@@ -198,16 +204,17 @@ public final class SiteCrawler {
         }
         else
           System.out.print(".");
-
+      }
       pageParser.add(s);
     }
     @Override public void complete(){
       if (debug(1))
-        System.out.append("\nCOMPLETED: ").append(String.valueOf(count))
+        System.out
+          .append("\nCOMPLETED: ").append(currentURI.toString())
+          .append(" COUNT: ").append(String.valueOf(count))
           .append(" SIZE: ").append(String.valueOf(pageSize / 1024)).append("K")
-          .append(" PAGE: ").append(currentURI.toString()).append("\n")
-          .append("TITLE: ").append(pageParser.getTitle())
-          .append("\n\n")
+          .append(" TITLE: ").append(pageParser.getTitle())
+          .append("\n")
           ;
       if (count<limit || limit == -1){
         pageSize=0;
