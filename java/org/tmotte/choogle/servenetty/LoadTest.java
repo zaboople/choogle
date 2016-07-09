@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Map;
 import java.util.Set;
-import static io.netty.handler.codec.http.HttpVersion.*; //FIXME
+import io.netty.handler.codec.http.HttpVersion;
 
 public class LoadTest extends SimpleChannelInboundHandler<Object> {
 
@@ -47,14 +47,12 @@ public class LoadTest extends SimpleChannelInboundHandler<Object> {
       // Pipelining:
       send100Continue(ctx);
 
-      // Headers:
       HttpHeaders headers = request.headers();
-
       String uri=request.getUri();
-
-      // Query string:
       QueryStringDecoder qsd = new QueryStringDecoder(request.getUri());
       String path=qsd.path();
+
+      //Get index from URI:
       int last=path.lastIndexOf("/");
       String indexStr=path.substring(last);
       int index=0;
@@ -64,6 +62,8 @@ public class LoadTest extends SimpleChannelInboundHandler<Object> {
         } catch (Exception e) {
           buf.append(e.getMessage());
         }
+
+      //Render HTML
       buf.append("<html>\r\n");
       if (index > 0)
         buf.append("<head><title>")
@@ -79,16 +79,13 @@ public class LoadTest extends SimpleChannelInboundHandler<Object> {
       buf.append(index);
       buf.append("<br>");
 
-      appendDecoderResult(buf, request);
     }
 
     if (msg instanceof HttpContent) {
       HttpContent httpContent = (HttpContent) msg;
-
       ByteBuf content = httpContent.content();
 
       if (msg instanceof LastHttpContent) {
-        buf.append("</body></html>");
 
         LastHttpContent trailer = (LastHttpContent) msg;
         HttpHeaders headers=trailer.trailingHeaders();
@@ -102,16 +99,10 @@ public class LoadTest extends SimpleChannelInboundHandler<Object> {
     }
   }
 
-  private static void appendDecoderResult(StringBuilder buf, HttpObject o) {
-    if (!o.getDecoderResult().isSuccess())
-      throw new RuntimeException(o.getDecoderResult().cause());
-  }
-
-
   private boolean writeResponse(HttpObject currentObj, ChannelHandlerContext ctx) {
     boolean keepAlive = HttpHeaders.isKeepAlive(request);
     FullHttpResponse response = new DefaultFullHttpResponse(
-      HTTP_1_1,
+      HttpVersion.HTTP_1_1,
       currentObj.getDecoderResult().isSuccess()
         ? HttpResponseStatus.OK
         : HttpResponseStatus.BAD_REQUEST,
@@ -130,10 +121,10 @@ public class LoadTest extends SimpleChannelInboundHandler<Object> {
   }
 
   private void send100Continue(ChannelHandlerContext ctx) {
-    if (HttpHeaders.is100ContinueExpected(request)) {
-      FullHttpResponse response = new DefaultFullHttpResponse(HTTP_1_1, HttpResponseStatus.CONTINUE);
-      ctx.write(response);
-    }
+    if (HttpHeaders.is100ContinueExpected(request))
+      ctx.write(
+        new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.CONTINUE)
+      );
   }
 
   @Override
