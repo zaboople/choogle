@@ -13,6 +13,7 @@ import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.codec.http.QueryStringDecoder;
 import io.netty.handler.codec.http.cookie.Cookie;
@@ -24,7 +25,6 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Map;
 import java.util.Set;
-import io.netty.handler.codec.http.HttpVersion;
 
 public class LoadTest extends SimpleChannelInboundHandler<Object> {
 
