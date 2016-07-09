@@ -18,9 +18,9 @@ public class MyInitializer extends ChannelInitializer<SocketChannel> {
   @Override
   public void initChannel(SocketChannel ch) {
     ChannelPipeline p = ch.pipeline();
-    if (sslCtx != null) {
+    if (sslCtx != null)
       p.addLast(sslCtx.newHandler(ch.alloc()));
-    }
+
     p.addLast(new HttpRequestDecoder());
     // Uncomment the following line if you don't want to handle HttpChunks.
     //p.addLast(new HttpObjectAggregator(1048576));
