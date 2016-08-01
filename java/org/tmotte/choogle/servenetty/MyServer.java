@@ -2,6 +2,7 @@ package org.tmotte.choogle.servenetty;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.logging.LogLevel;
@@ -9,6 +10,7 @@ import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.SelfSignedCertificate;
+import java.util.function.Supplier;
 
 /**
   * An HTTP server that sends back the content of the received HTTP request
@@ -17,7 +19,7 @@ import io.netty.handler.ssl.util.SelfSignedCertificate;
 public final class MyServer {
 
 
-  public static void serve() throws Exception {
+  public static void serve(Supplier<SimpleChannelInboundHandler<Object>> handlerFactory) throws Exception {
 
     final boolean SSL = System.getProperty("ssl") != null;
     final int PORT = Integer.parseInt(
@@ -42,7 +44,7 @@ public final class MyServer {
         .group(bossGroup, workerGroup)
         .channel(NioServerSocketChannel.class)
         .handler(new LoggingHandler(LogLevel.INFO))
-        .childHandler(new MyInitializer(sslCtx))
+        .childHandler(new MyInitializer(sslCtx, handlerFactory))
         .bind(PORT).sync()
         .channel();
       System.out.println(

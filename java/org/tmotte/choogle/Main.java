@@ -19,7 +19,7 @@ public class Main {
     else
     if (arg0.equals("--server") || arg0.startsWith("-s"))
       //org.tmotte.choogle.servejetty.MyJettyServer.serve();
-      MyServer.serve();
+      MyServer.serve(() -> new org.tmotte.choogle.servenetty.LoadTest());
     else
     if (arg0.equals("--client") || arg0.startsWith("-c")){
       long depth=1;

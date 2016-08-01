@@ -5,7 +5,6 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
-import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
@@ -172,6 +171,7 @@ public final class SiteCrawler {
       int statusCode=resp.getStatus().code();
       HttpHeaders headers = resp.headers();
       String connectionStatus=headers.get(HttpHeaders.Names.CONNECTION);
+      String eTag=headers.get(HttpHeaders.Names.ETAG);
       if ("CLOSE".equals(connectionStatus) || "close".equals(connectionStatus))
         earlyClose=true;
       if (debug(2))
@@ -179,6 +179,8 @@ public final class SiteCrawler {
         .append(currentURI.toString())
         .append(" STATUS: ")
         .append(String.valueOf(statusCode))
+        .append(" ETAG: ")
+        .append(eTag)
         .append(" ")
         .append(connectionStatus);
       if (statusCode==HttpResponseStatus.FOUND.code() ||

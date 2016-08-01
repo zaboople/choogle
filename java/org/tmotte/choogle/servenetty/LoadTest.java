@@ -55,7 +55,7 @@ public class LoadTest extends SimpleChannelInboundHandler<Object> {
       //Get index from URI:
       int last=path.lastIndexOf("/");
       String indexStr=path.substring(last);
-      int index=0;
+      int index=1;
       if (indexStr.length()>1)
         try {
           index=Integer.parseInt(indexStr.substring(1))-1;
@@ -65,10 +65,9 @@ public class LoadTest extends SimpleChannelInboundHandler<Object> {
 
       //Render HTML
       buf.append("<html>\r\n");
-      if (index > 0)
-        buf.append("<head><title>")
-          .append(String.valueOf(index))
-          .append("</title></head>\r\n");
+      buf.append("<head><title>")
+        .append(String.valueOf(index))
+        .append("</title></head>\r\n");
       buf.append("<body>\r\n");
       if (index > 0) {
         buf.append("<a href=\"/");
@@ -77,7 +76,7 @@ public class LoadTest extends SimpleChannelInboundHandler<Object> {
       }
       buf.append("<br>");
       buf.append(index);
-      buf.append("<br>");
+      buf.append("<br></body></html>");
 
     }
 
