@@ -24,6 +24,7 @@ import io.netty.util.CharsetUtil;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 
 public class LoadTest extends SimpleChannelInboundHandler<Object> {
@@ -32,6 +33,44 @@ public class LoadTest extends SimpleChannelInboundHandler<Object> {
   // in variables like this:
   private final StringBuilder buf = new StringBuilder();
   private HttpRequest request;
+  private Random random=new java.util.Random(System.currentTimeMillis());
+
+  private void makeContent(Appendable buffer, String indexStr) {
+    try {
+      // Create the next lowest index:
+      long index=1;
+      if (indexStr.length()>1)
+        try {
+          index=Long.parseLong(indexStr.substring(1))-1;
+        } catch (Exception e) {
+          buffer
+            .append("Your input was supposed to be number and it failed to parse: ")
+            .append(e.getMessage());
+        }
+      indexStr=String.valueOf(index);
+
+      //Render HTML
+      buffer.append("<html>\r\n");
+      buffer.append("<head><title>")
+        .append(String.valueOf(index))
+        .append("</title></head>\r\n");
+      buffer.append("<body>\r\n");
+      buffer.append("<p>Random number: ");
+      for (int i=0; i<100; i++)
+        buffer.append(String.valueOf(Math.abs(random.nextInt())))
+          .append(" ");
+      buffer.append("</p>\n");
+      if (index > 0)
+        buffer.append("<a href=\"/")
+          .append(indexStr)
+          .append("\">Next link</a>");
+      buffer.append("<br>");
+      buffer.append(indexStr);
+      buffer.append("<br></body></html>");
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
 
   @Override
   public void channelReadComplete(ChannelHandlerContext ctx) {
@@ -54,29 +93,7 @@ public class LoadTest extends SimpleChannelInboundHandler<Object> {
 
       //Get index from URI:
       int last=path.lastIndexOf("/");
-      String indexStr=path.substring(last);
-      int index=1;
-      if (indexStr.length()>1)
-        try {
-          index=Integer.parseInt(indexStr.substring(1))-1;
-        } catch (Exception e) {
-          buf.append(e.getMessage());
-        }
-
-      //Render HTML
-      buf.append("<html>\r\n");
-      buf.append("<head><title>")
-        .append(String.valueOf(index))
-        .append("</title></head>\r\n");
-      buf.append("<body>\r\n");
-      if (index > 0) {
-        buf.append("<a href=\"/");
-        buf.append(index);
-        buf.append("\">Next link</a>");
-      }
-      buf.append("<br>");
-      buf.append(index);
-      buf.append("<br></body></html>");
+      makeContent(buf, path.substring(last));
 
     }
 
@@ -116,6 +133,14 @@ public class LoadTest extends SimpleChannelInboundHandler<Object> {
 
     // Write the response.
     ctx.write(response);
+    if (false) // I don't know how you write more than one thing:
+      try {
+        ByteBuf bb=new io.netty.buffer.UnpooledByteBufAllocator(false).buffer();
+        bb.writeBytes("bullshit".getBytes("utf-8"));
+        ctx.write(bb);
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
     return keepAlive;
   }
 

@@ -32,9 +32,10 @@ import org.tmotte.choogle.chug.Link;
  */
 public final class SiteCrawler {
 
-  // NON-CHANGING STATE
+  // NON-CHANGING STATE:
   private final int debugLevel;
   private final long limit;
+  private final boolean cacheResults;
   private final EventLoopGroup elGroup;
 
   // CHANGE-ONCE STATE:
@@ -57,7 +58,9 @@ public final class SiteCrawler {
   private boolean earlyClose=false;
 
 
-  public SiteCrawler(EventLoopGroup elGroup, URI uri, long limit, int debugLevel){
+  public SiteCrawler(
+      EventLoopGroup elGroup, URI uri, long limit, int debugLevel, boolean cacheResults
+    ){
     this.debugLevel=debugLevel;
     if (debug(1))
       System.out.println("SITE: "+uri);
@@ -70,9 +73,19 @@ public final class SiteCrawler {
     this.elGroup=elGroup;
     this.currentURI=uri;
     this.limit=limit;
+    this.cacheResults=cacheResults;
   }
-  public SiteCrawler(EventLoopGroup elGroup, String uri, long limit, int debugLevel) throws Exception{
-    this(elGroup, Link.getURI(uri), limit, debugLevel);
+  public SiteCrawler(
+      EventLoopGroup elGroup, String uri, long limit, int debugLevel, boolean cacheResults
+    ) throws Exception{
+    this(elGroup, getURI(uri), limit, debugLevel, cacheResults);
+  }
+
+  private static URI getURI(String uri) throws Exception {
+    URI realURI=Link.getURI(uri);
+    if (realURI==null)
+      throw new RuntimeException("Could not interpret URI: "+uri);
+    return realURI;
   }
 
 
@@ -166,7 +179,8 @@ public final class SiteCrawler {
 
   private Chreceiver myReceiver = new Chreceiver() {
     @Override public void start(HttpResponse resp){
-      alreadyCrawled.add(currentURI.getRawPath());
+      if (cacheResults)
+        alreadyCrawled.add(currentURI.getRawPath());
       pageParser.reset();
       int statusCode=resp.getStatus().code();
       HttpHeaders headers = resp.headers();

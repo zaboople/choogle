@@ -21,41 +21,55 @@ public class Main {
       //org.tmotte.choogle.servejetty.MyJettyServer.serve();
       MyServer.serve(() -> new org.tmotte.choogle.servenetty.LoadTest());
     else
-    if (arg0.equals("--client") || arg0.startsWith("-c")){
-      long depth=1;
-      int i=1, debugLevel=1;
-      while (i < args.length)
-        if (args[i].equals("--depth") || args[i].startsWith("-d"))
-          try {
-            depth=Long.parseLong(args[++i]);
-            i++;
-          } catch (Exception e) {
-            help("Not an integer: "+args[i]);
-            return;
-          }
-        else
-        if (args[i].equals("--verbose") || args[i].startsWith("-v")){
-          debugLevel++;
-          i++;
-        }
-        else
-        if (args[i].startsWith("-")){
-          help("Unrecognized argument: "+args[i]);
-          return;
-        }
-        else
-          break;
-      List<String> urls=java.util.Arrays.asList(args).subList(i, args.length);
-      if (urls.size()==0){
-        help("Missing depth & list of URLs");
-        return;
-      }
-      System.out.println("Crawling: "+urls.stream().collect(Collectors.joining(", ")));
-      WorldCrawler.crawl(urls, depth, debugLevel);
-    }
+    if (arg0.equals("--client") || arg0.startsWith("-c"))
+      runClient(args);
     else
       help("Unexpected: "+arg0);
   }
+
+  private static void runClient(String[] args) throws Exception {
+    int debugLevel=1;
+    long depth=1;
+    boolean cacheResults=true;
+
+    int i=0;
+    while (++i < args.length)
+      if (args[i].equals("--depth") || args[i].startsWith("-d"))
+        try {
+          depth=Long.parseLong(args[++i]);
+        } catch (Exception e) {
+          help("Not an integer: "+args[i]);
+          return;
+        }
+      else
+      if (args[i].equals("--verbose") || args[i].startsWith("-v"))
+        debugLevel++;
+      else
+      if (args[i].equals("--no-cache") || args[i].startsWith("-n"))
+        cacheResults=false;
+      else
+      if (args[i].startsWith("-")){
+        help("Unrecognized argument: "+args[i]);
+        return;
+      }
+      else
+        break;
+    List<String> urls=java.util.Arrays.asList(args).subList(i, args.length);
+    if (urls.size()==0){
+      help("Missing list of URLs");
+      return;
+    }
+    System.out.println(String.format(
+      "\nCRAWLING URL(S): %s\n",
+      urls.stream().collect(Collectors.joining(", ")))
+    );
+    long s1=System.currentTimeMillis();
+    WorldCrawler.crawl(urls, depth, debugLevel, cacheResults);
+    long s2=System.currentTimeMillis();
+    System.out.println(String.format("Completed in %d ms", s2-s1));
+  }
+
+
   private static void help() throws Exception {
     help(null);
   }
@@ -69,11 +83,16 @@ public class Main {
     a.append(
       "\n"
     + "  Usage : java org.tmotte.choogle.Main \\\n "
-    + "       < --help | --server | --client [--verbose | -v] [--depth | -d] [urls]> \n"
+    + "       < --help | --server | --client [--verbose] [--depth] [--no-cache] <urls>> \n"
     + "  Parameters:\n"
-    + "    --client: If no url's are given they will be read from stdin\n"
-    + "      --verbose: Debugging information. Specify more than once for even more debugging. \n"
-    + "      --depth:   Number of site URL's to traverse before walking away. \n"
+    + "    --help:      Print this message\n"
+    + "    --server:    Start up server\n"
+    + "    --client:    If no url's are given they will be read from stdin\n"
+    + "      --verbose:   Debugging information. Specify more than once for even more debugging. \n"
+    + "      --depth:     Number of site URL's to traverse before walking away. \n"
+    + "      --no-cache:  Do not track URL's already crawled. This is only useful when\n"
+    + "                   using the client as a load-tester.\n"
+    + "      urls:        A space-delimited list of url's to start crawling from. \n"
     );
     System.err.flush();
     System.out.flush();

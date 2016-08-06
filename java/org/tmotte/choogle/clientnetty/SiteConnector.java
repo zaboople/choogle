@@ -22,6 +22,8 @@ import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import java.net.URI;
 import org.tmotte.choogle.chug.Link;
 
+
+/** Only used by SiteCrawler. */
 public final class SiteConnector {
   private EventLoopGroup group;
   private ChannelInitializer<SocketChannel> initializer;

@@ -32,8 +32,10 @@ public final class WorldCrawler  {
   // STATIC FUNCTIONS: //
   ///////////////////////
 
-  public static void crawl(List<String> uris, long limit, int debugLevel) throws Exception {
-    WorldCrawler wc=new WorldCrawler(limit, debugLevel);
+  public static void crawl(
+      List<String> uris, long limit, int debugLevel, boolean cacheResults
+    ) throws Exception {
+    WorldCrawler wc=new WorldCrawler(limit, debugLevel, cacheResults);
     wc.crawl(uris);
   }
 
@@ -44,9 +46,11 @@ public final class WorldCrawler  {
   private final EventLoopGroup elGroup=new NioEventLoopGroup();
   private final long limit;
   private final int debugLevel;
-  public WorldCrawler(long limit, int debugLevel){
+  private final boolean cacheResults;
+  public WorldCrawler(long limit, int debugLevel, boolean cacheResults){
     this.limit=limit;
     this.debugLevel=debugLevel;
+    this.cacheResults=cacheResults;
   }
 
   ///////////////////////
@@ -95,7 +99,9 @@ public final class WorldCrawler  {
   private List<SiteCrawler> start(List<String> uris) throws Exception {
     List<SiteCrawler> crawlers=new ArrayList<>(uris.size());
     for (String u : uris) {
-      SiteCrawler sc=new SiteCrawler(elGroup, u, limit, debugLevel);
+      if (!u.startsWith("http"))
+        u="http://"+u;
+      SiteCrawler sc=new SiteCrawler(elGroup, u, limit, debugLevel, cacheResults);
       crawlers.add(sc);
       sc.start();
     }
