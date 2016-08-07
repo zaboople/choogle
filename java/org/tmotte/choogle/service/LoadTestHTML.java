@@ -30,7 +30,7 @@ public class LoadTestHTML {
         }
       indexStr=String.valueOf(index);
 
-      //Render HTML
+      //Render HTML:
       buffer.append("<html>\r\n");
       buffer.append("<head><title>")
         .append(String.valueOf(index))
