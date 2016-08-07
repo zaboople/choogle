@@ -1,12 +1,11 @@
 package org.tmotte.choogle;
-import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.servlet.ServletHandler;
-import org.tmotte.choogle.servenetty.MyServer;
-import org.tmotte.choogle.clientnetty.WorldCrawler;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.tmotte.choogle.clientnetty.WorldCrawler;
+import org.tmotte.choogle.servejetty.framework.MyJettyServer;
+import org.tmotte.choogle.servenetty.MyServer;
 
 public class Main {
   public static void main(String[] args) throws Exception  {
@@ -18,8 +17,8 @@ public class Main {
       help();
     else
     if (arg0.equals("--server") || arg0.startsWith("-s"))
-      //org.tmotte.choogle.servejetty.MyJettyServer.serve();
-      MyServer.serve(() -> new org.tmotte.choogle.servenetty.LoadTest());
+      MyJettyServer.serve(new org.tmotte.choogle.servejetty.LoadTest());
+      //MyServer.serve(() -> new org.tmotte.choogle.servenetty.LoadTest());
     else
     if (arg0.equals("--client") || arg0.startsWith("-c"))
       runClient(args);

@@ -1,4 +1,4 @@
-package org.tmotte.choogle.chug;
+package org.tmotte.choogle.service;
 import java.util.Random;
 
 public class JustCompute {

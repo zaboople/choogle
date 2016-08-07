@@ -26,6 +26,7 @@ import java.util.Map.Entry;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import org.tmotte.choogle.service.LoadTestHTML;
 
 public class LoadTest extends SimpleChannelInboundHandler<Object> {
 
@@ -33,44 +34,8 @@ public class LoadTest extends SimpleChannelInboundHandler<Object> {
   // in variables like this:
   private final StringBuilder buf = new StringBuilder();
   private HttpRequest request;
+  private LoadTestHTML htmlGenerator=new LoadTestHTML();
   private Random random=new java.util.Random(System.currentTimeMillis());
-
-  private void makeContent(Appendable buffer, String indexStr) {
-    try {
-      // Create the next lowest index:
-      long index=1;
-      if (indexStr.length()>1)
-        try {
-          index=Long.parseLong(indexStr.substring(1))-1;
-        } catch (Exception e) {
-          buffer
-            .append("Your input was supposed to be number and it failed to parse: ")
-            .append(e.getMessage());
-        }
-      indexStr=String.valueOf(index);
-
-      //Render HTML
-      buffer.append("<html>\r\n");
-      buffer.append("<head><title>")
-        .append(String.valueOf(index))
-        .append("</title></head>\r\n");
-      buffer.append("<body>\r\n");
-      buffer.append("<p>Random number: ");
-      for (int i=0; i<100; i++)
-        buffer.append(String.valueOf(Math.abs(random.nextInt())))
-          .append(" ");
-      buffer.append("</p>\n");
-      if (index > 0)
-        buffer.append("<a href=\"/")
-          .append(indexStr)
-          .append("\">Next link</a>");
-      buffer.append("<br>");
-      buffer.append(indexStr);
-      buffer.append("<br></body></html>");
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-  }
 
   @Override
   public void channelReadComplete(ChannelHandlerContext ctx) {
@@ -89,12 +54,7 @@ public class LoadTest extends SimpleChannelInboundHandler<Object> {
       HttpHeaders headers = request.headers();
       String uri=request.getUri();
       QueryStringDecoder qsd = new QueryStringDecoder(request.getUri());
-      String path=qsd.path();
-
-      //Get index from URI:
-      int last=path.lastIndexOf("/");
-      makeContent(buf, path.substring(last));
-
+      htmlGenerator.makeContent(buf, qsd.path());
     }
 
     if (msg instanceof HttpContent) {
