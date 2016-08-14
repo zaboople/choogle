@@ -1,4 +1,4 @@
-package org.tmotte.choogle.chug;
+package org.tmotte.choogle.pagecrawl;
 class StringMatcher {
 
   // Once:

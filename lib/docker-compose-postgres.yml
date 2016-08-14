@@ -1,0 +1,8 @@
+db:
+  image: postgres:9.5.4
+  ports:
+    - "5432:5432"
+  environment:
+    POSTGRES_PASSWORD: pass
+    POSTGRES_USER: user
+    POSTGRES_DB: mydb

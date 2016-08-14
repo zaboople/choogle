@@ -1,4 +1,4 @@
-package org.tmotte.choogle.chug;
+package org.tmotte.choogle.pagecrawl;
 import java.util.Collection;
 import org.tmotte.common.text.HTMLParserListener;
 import org.tmotte.common.text.HTMLParser;

@@ -18,13 +18,9 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.HashMap;
 import java.util.Map;
-import org.tmotte.choogle.chug.AnchorReader;
-import org.tmotte.choogle.chug.Link;
-import org.tmotte.common.text.HTMLParser;
 
 /**
  * Crawls a group of web sites in parallel, waiting for all to finish.
- * FIXME DOESN'T HANDLE WHEN SITE CLOSES CONNECTION  http://abcnews.go.com/Topics
  */
 public final class WorldCrawler  {
 

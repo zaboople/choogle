@@ -20,7 +20,7 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import java.net.URI;
-import org.tmotte.choogle.chug.Link;
+import org.tmotte.choogle.pagecrawl.Link;
 
 
 /** Only used by SiteCrawler. */

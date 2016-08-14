@@ -15,12 +15,11 @@ import io.netty.util.CharsetUtil;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.ArrayDeque;
-import java.util.List;
 import java.util.Collection;
 import java.util.Set;
 import java.util.HashSet;
-import org.tmotte.choogle.chug.AnchorReader;
-import org.tmotte.choogle.chug.Link;
+import org.tmotte.choogle.pagecrawl.AnchorReader;
+import org.tmotte.choogle.pagecrawl.Link;
 
 /**
  * Crawls a single web site. Also makes a list of external links but doesn't do anything with them;
