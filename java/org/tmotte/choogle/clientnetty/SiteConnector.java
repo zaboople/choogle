@@ -34,7 +34,7 @@ import org.tmotte.choogle.pagecrawl.Link;
  * Takes a Chreceiver input and connects it to a Channel. When Requests are sent to that
  * Channel, the response will eventually arrive at the Chreceiver.
  */
-public final class SiteConnector {
+final class SiteConnector {
 
   public static Channel connect(EventLoopGroup elg, Chreceiver r, URI uri) throws Exception {
     return connect(elg, r, uri.getHost(), uri.getPort(), uri.getScheme().equals("https"));

@@ -89,28 +89,32 @@ public abstract class SiteCrawler {
       URI currentURI,
       int statusCode,
       String eTag,
+      String lastModified,
+      boolean closed,
       boolean redirected,
       String locationHeader
     )throws Exception{
-    if (debug(2))
-      System.out.append("\nRESPONDED: ")
-      .append(currentURI.toString())
-      .append(" STATUS: ")
-      .append(String.valueOf(statusCode))
-      .append(" ETAG: ")
-      .append(eTag)
-      .append(" REDIRECT: ")
-      .append(String.valueOf(redirected));
-    if (redirected) {
-      if (locationHeader!=null) {
-        tempLinks.add(locationHeader);
-        if (debug(2)) System.out.append("\nREDIRECT: ").append(locationHeader);
-      }
+    if (debug(2)) {
+      System.out.append("  ").append(sitehost)
+        .append(" RESPONSE")
+        .append(" STATUS: ")
+        .append(String.valueOf(statusCode));
+      if (eTag!=null)
+        System.out.append(" ETAG: ").append(eTag);
+      if (lastModified !=null)
+        System.out.append(" LAST MODIFIED: ").append(lastModified);
+      if (closed)
+        System.out.append(" CLOSED ");
+      if (redirected)
+        System.out.append(" REDIRECT: ").append(locationHeader);
     }
+    if (redirected && locationHeader!=null)
+      tempLinks.add(locationHeader);
     else
       count++;
-    if (debug(2)) System.out.println();
+    if (debug(2)) System.out.print("\n  ");
   }
+
   public void pageBody(URI currentURI, String s) throws Exception{
     pageSize+=s.length();
     if (debug(2)) {
@@ -129,8 +133,8 @@ public abstract class SiteCrawler {
   public URI pageComplete(URI currentURI) throws Exception{
     if (debug(1))
       System.out
-        .append("\nCOMPLETED: ").append(currentURI.toString())
-        .append(" COUNT: ").append(String.valueOf(count))
+        .append("\n  ")
+        .append(sitehost).append(" COMPLETED")
         .append(" SIZE: ").append(String.valueOf(pageSize / 1024)).append("K")
         .append(" TITLE: ").append(pageParser.getTitle())
         .append("\n")
@@ -145,7 +149,10 @@ public abstract class SiteCrawler {
           e.printStackTrace();
         }
     }
-    if (debug(2)) System.out.println("ALL LINKS READ, CLOSING");
+    if (debug(2))
+      System.out
+        .append(sitehost)
+        .append("  ALL LINKS READ, CLOSING\n");
     return null;
   }
 
@@ -186,10 +193,15 @@ public abstract class SiteCrawler {
       }
     if (debug(2))
       System.out
-        .append("LINK COUNT: "+tempLinks.size())
+        .append("  ").append(sitehost)
+        .append(" COUNT: ").append(String.valueOf(count));
+    if (debug(3))
+      System.out
+        .append(" LINK COUNT: "+tempLinks.size())
         .append(" SCHEDULED: ").append(String.valueOf(scheduled.size()))
-        .append(" ELSEWHERE: ").append(String.valueOf(elsewhere.size()))
-        .append("\n");
+        .append(" ELSEWHERE: ").append(String.valueOf(elsewhere.size()));
+    if (debug(2))
+      System.out.append("\n");
     tempLinks.clear();
   }
 

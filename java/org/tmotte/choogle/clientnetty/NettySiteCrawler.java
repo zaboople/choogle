@@ -59,7 +59,11 @@ public final class NettySiteCrawler extends SiteCrawler {
     }
     currentURI=uri;
     String rawPath=uri.getRawPath();
-    if (debug(2)) System.out.append("\nSTARTING: ").append(rawPath);
+    if (debug(2))
+      System.out
+        .append("\nSTARTING: ")
+        .append(uri.toString())
+        .append("\n");
     HttpRequest request = new DefaultFullHttpRequest(
       HttpVersion.HTTP_1_1, HttpMethod.GET, rawPath
     );
@@ -82,13 +86,12 @@ public final class NettySiteCrawler extends SiteCrawler {
         statusCode==HttpResponseStatus.FOUND.code() ||
         statusCode==HttpResponseStatus.MOVED_PERMANENTLY.code();
       String connectionStatus=headers.get(HttpHeaders.Names.CONNECTION);
-      String eTag=headers.get(HttpHeaders.Names.ETAG);
       String location=headers.get(HttpHeaders.Names.LOCATION);
+      String eTag=redirected ?null :headers.get(HttpHeaders.Names.ETAG);
+      String lastModified=redirected ?null :headers.get(HttpHeaders.Names.LAST_MODIFIED);
       boolean closed =
         "CLOSE".equals(connectionStatus) || "close".equals(connectionStatus);
-      if (closed && debug(1))
-        System.out.append(currentURI.toString()).append(" WANTS TO CLOSE CONNECTION\n");
-      pageStart(currentURI, statusCode, eTag, redirected, location);
+      pageStart(currentURI, statusCode, eTag, lastModified, closed, redirected, location);
     }
     @Override public void body(HttpContent body) throws Exception {
       pageBody(currentURI, body.content().toString(CharsetUtil.UTF_8));
