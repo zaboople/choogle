@@ -1,4 +1,4 @@
-package org.tmotte.choogle.servejetty;
+package org.tmotte.choogle.servejetty.framework;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Random;
@@ -13,7 +13,7 @@ import org.eclipse.jetty.server.handler.AbstractHandler;
  * I am currently not using this, but it's just another way to hook into
  * jetty; instead I use Chervlet, which gets hooked in via reflection.
  */
-public class ChoogleHandler extends AbstractHandler {
+public class OtherHandler extends AbstractHandler {
   Random rand=new Random(System.currentTimeMillis());
 
   public void handle(

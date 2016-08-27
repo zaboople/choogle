@@ -3,7 +3,7 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.tmotte.choogle.clientnetty.WorldCrawler;
+import org.tmotte.choogle.clientnetty.NettyWorldCrawler;
 import org.tmotte.choogle.servejetty.framework.MyJettyServer;
 import org.tmotte.choogle.servenetty.MyServer;
 
@@ -17,7 +17,7 @@ public class Main {
       help();
     else
     if (arg0.equals("--server") || arg0.startsWith("-s"))
-      MyJettyServer.serve(new org.tmotte.choogle.servejetty.LoadTest());
+      MyJettyServer.serve(new org.tmotte.choogle.service.LoadTest());
       //MyServer.serve(() -> new org.tmotte.choogle.servenetty.LoadTest());
     else
     if (arg0.equals("--client") || arg0.startsWith("-c"))
@@ -63,7 +63,7 @@ public class Main {
       urls.stream().collect(Collectors.joining(", ")))
     );
     long s1=System.currentTimeMillis();
-    WorldCrawler.crawl(urls, depth, debugLevel, cacheResults);
+    NettyWorldCrawler.crawl(urls, depth, debugLevel, cacheResults);
     long s2=System.currentTimeMillis();
     System.out.println(String.format("Completed in %d ms", s2-s1));
   }

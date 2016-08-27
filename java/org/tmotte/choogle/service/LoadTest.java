@@ -1,11 +1,6 @@
-package org.tmotte.choogle.servejetty;
-import javax.servlet.AsyncContext;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
+package org.tmotte.choogle.service;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.ServletContextListener;
-import javax.servlet.ServletContextEvent;
 import java.util.Enumeration;
 import java.util.Random;
 import java.io.PrintWriter;

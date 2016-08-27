@@ -15,18 +15,18 @@ import javax.servlet.http.HttpServlet;
 public class MyServlet extends HttpServlet implements java.io.Serializable {
 
   public static final long serialVersionUID = 1;
+
   private final MyAsyncProcessor masp;
+  public MyServlet(MyHandler myHandler) {
+    masp=new MyAsyncProcessor(myHandler);
+    new Thread(masp).start();
+  }
 
   public void service(HttpServletRequest request, HttpServletResponse response) {
-    //System.out.print("A");
     masp.add(
       request.startAsync(request, response)
     );
   }
 
-  public MyServlet(MyHandler myHandler) {
-    masp=new MyAsyncProcessor(myHandler);
-    new Thread(masp).start();
-  }
 }
 
