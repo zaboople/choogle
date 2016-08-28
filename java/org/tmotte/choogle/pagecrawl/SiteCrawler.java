@@ -9,12 +9,9 @@ import org.tmotte.choogle.pagecrawl.AnchorReader;
 import org.tmotte.choogle.pagecrawl.Link;
 
 /**
- * Crawls a single web site. Also makes a list of external links but doesn't do anything with them;
- * in fact it <b>can't</b> even if it wanted to, because SiteCrawler is tied to a single I/O Channel,
- * which means a specific domain/port/protocol. Most importantly, If SiteCrawler immediately gets a
- * redirect because, say, http://foo.com always redirects to https://www.foo.com, a new SiteCrawler
- * must be created. WorldCrawler handles this responsibility and uses SiteCrawler.wasSiteRedirect()
- * to find out about it.
+ * For crawling a single web site. There are two key abstract methods: read(uri) and finish().
+ * A complete crawler should implement read(uri) and call the pageStart/pageBody/pageComplete()
+ * methods as data arrives; it should implement finish() for synchronizing completion of the work.
  */
 public abstract class SiteCrawler {
 
@@ -52,10 +49,17 @@ public abstract class SiteCrawler {
     this.cacheResults=cacheResults;
   }
 
+  ///////////////////////
+  // SITE-LEVEL API's: //
+  ///////////////////////
 
   public SiteCrawler start(String initialURI) throws Exception {
     return start(getURI(initialURI));
   }
+
+  /**
+   * Starts the crawling process. Calls read(uri).
+   */
   public SiteCrawler start(URI initialURI) throws Exception {
     if (debug(1))
       System.out.println("SITE: "+initialURI);
@@ -65,7 +69,12 @@ public abstract class SiteCrawler {
     read(initialURI);
     return this;
   }
+
+  /**
+   * Called after start() to synchronize to completion.
+   */
   public abstract void finish() throws Exception;
+
   public URI wasSiteRedirect() {
     return count==0 && scheduled.size()==0 && elsewhere.size()>=1
       ?elsewhere.iterator().next()
@@ -83,8 +92,22 @@ public abstract class SiteCrawler {
   // PAGE-LEVEL API'S: //
   ///////////////////////
 
+  /**
+   * Needs to be implemented to both read the URI and call pageStart/pageBody/pageComplete()
+   * as data comes in.
+   */
   protected abstract void read(URI uri) throws Exception;
 
+  /** Call to the next scheduled URL for the current site. */
+  protected URI getNext() {
+    if (scheduled.size()==0)
+      return null;
+    return scheduled.removeFirst();
+  }
+
+  /**
+   * Should be called when headers from the server arrive.
+   */
   public void pageStart(
       URI currentURI,
       int statusCode,
@@ -115,6 +138,10 @@ public abstract class SiteCrawler {
     if (debug(2)) System.out.print("\n  ");
   }
 
+  /**
+   * Should be called when the body of the page is delivered; can be called
+   * incrementally as chunks arrive.
+   */
   public void pageBody(URI currentURI, String s) throws Exception{
     pageSize+=s.length();
     if (debug(2)) {
@@ -129,8 +156,11 @@ public abstract class SiteCrawler {
     pageParser.add(s);
   }
 
-  /** FIXME document */
-  public URI pageComplete(URI currentURI) throws Exception{
+  /**
+   * Should be called when the page is complete.
+   * @return If we want more pages, true.
+   */
+  public boolean pageComplete(URI currentURI) throws Exception{
     if (debug(1))
       System.out
         .append("\n  ")
@@ -144,7 +174,8 @@ public abstract class SiteCrawler {
       addLinks(currentURI);
       if (scheduled.size()>0)
         try {
-          return scheduled.removeFirst(); //RETURN
+          resetPageParser();
+          return true; //RETURN
         } catch (Exception e) {
           e.printStackTrace();
         }
@@ -153,7 +184,8 @@ public abstract class SiteCrawler {
       System.out
         .append(sitehost)
         .append("  ALL LINKS READ, CLOSING\n");
-    return null;
+    resetPageParser();
+    return false;
   }
 
   ///////////
@@ -169,6 +201,9 @@ public abstract class SiteCrawler {
   /////////////////////////
 
   private void addLinks(URI relativeTo) {
+
+    // 1. If we found some links, add them to our schedule
+    //    of what to crawl:
     if (scheduled.size()<limit || limit == -1)
       for (String maybeStr: tempLinks) {
         URI maybe=null;
@@ -191,10 +226,12 @@ public abstract class SiteCrawler {
         }
         else elsewhere.add(maybe);
       }
+
+    // 2. Print some helpful debugging:
     if (debug(2))
       System.out
         .append("  ").append(sitehost)
-        .append(" COUNT: ").append(String.valueOf(count));
+        .append(" RESPONSE COUNT: ").append(String.valueOf(count));
     if (debug(3))
       System.out
         .append(" LINK COUNT: "+tempLinks.size())
@@ -202,7 +239,12 @@ public abstract class SiteCrawler {
         .append(" ELSEWHERE: ").append(String.valueOf(elsewhere.size()));
     if (debug(2))
       System.out.append("\n");
+
+  }
+
+  private void resetPageParser() {
     tempLinks.clear();
+    pageParser.reset();
   }
 
   private static URI getURI(String uri) throws Exception {

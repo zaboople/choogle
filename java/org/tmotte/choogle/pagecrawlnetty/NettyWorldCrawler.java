@@ -1,4 +1,4 @@
-package org.tmotte.choogle.clientnetty;
+package org.tmotte.choogle.pagecrawlnetty;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import java.util.concurrent.TimeUnit;

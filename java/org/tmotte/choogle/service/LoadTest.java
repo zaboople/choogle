@@ -4,8 +4,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.Enumeration;
 import java.util.Random;
 import java.io.PrintWriter;
-import org.tmotte.choogle.service.LoadTestHTML;
-import org.tmotte.choogle.servejetty.framework.MyHandler;
+import org.tmotte.common.jettyserver.MyHandler;
 
 public class LoadTest implements MyHandler {
   private LoadTestHTML generator=new LoadTestHTML();

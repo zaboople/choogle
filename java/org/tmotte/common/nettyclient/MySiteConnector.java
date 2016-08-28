@@ -1,4 +1,4 @@
-package org.tmotte.choogle.clientnetty;
+package org.tmotte.common.nettyclient;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -31,16 +31,16 @@ import java.net.URI;
 import org.tmotte.choogle.pagecrawl.Link;
 
 /**
- * Takes a Chreceiver input and connects it to a Channel. When Requests are sent to that
- * Channel, the response will eventually arrive at the Chreceiver.
+ * Takes a MyResponseReceiver input and connects it to a Channel. When Requests are sent to that
+ * Channel, the response will eventually arrive at the MyResponseReceiver.
  */
-final class SiteConnector {
+public final class MySiteConnector {
 
-  public static Channel connect(EventLoopGroup elg, Chreceiver r, URI uri) throws Exception {
+  public static Channel connect(EventLoopGroup elg, MyResponseReceiver r, URI uri) throws Exception {
     return connect(elg, r, uri.getHost(), uri.getPort(), uri.getScheme().equals("https"));
   }
 
-  public static Channel connect(EventLoopGroup elg, Chreceiver r, String host, int port, boolean ssl) throws Exception {
+  public static Channel connect(EventLoopGroup elg, MyResponseReceiver r, String host, int port, boolean ssl) throws Exception {
     ChannelInitializer<SocketChannel> initializer =
       new MyClientInitializer(
         ssl
@@ -64,8 +64,8 @@ final class SiteConnector {
 
 
   private static class MyClientHandler extends SimpleChannelInboundHandler<HttpObject> {
-    private Chreceiver receiver;
-    public MyClientHandler(Chreceiver receiver) {
+    private MyResponseReceiver receiver;
+    public MyClientHandler(MyResponseReceiver receiver) {
       super();
       this.receiver=receiver;
     }
@@ -81,7 +81,9 @@ final class SiteConnector {
           HttpContent content = (HttpContent) msg;
           receiver.body(content);
           if (content instanceof LastHttpContent)
-            receiver.complete();
+            receiver.complete(
+              ((LastHttpContent)msg).trailingHeaders()
+            );
         }
       } catch (Exception e) {
         e.printStackTrace(System.err);

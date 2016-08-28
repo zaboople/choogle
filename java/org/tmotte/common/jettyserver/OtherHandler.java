@@ -1,4 +1,4 @@
-package org.tmotte.choogle.servejetty.framework;
+package org.tmotte.common.jettyserver;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Random;
@@ -11,19 +11,25 @@ import org.eclipse.jetty.server.handler.AbstractHandler;
 
 /**
  * I am currently not using this, but it's just another way to hook into
- * jetty; instead I use Chervlet, which gets hooked in via reflection.
+ * jetty; instead I use MyServlet, which gets hooked in via reflection.
  */
 public class OtherHandler extends AbstractHandler {
-  Random rand=new Random(System.currentTimeMillis());
+
+  private MyHandler myHandler;
+
+  public OtherHandler(MyHandler handler) {
+    this.myHandler=handler;
+  }
 
   public void handle(
     String target, Request baseRequest,
     HttpServletRequest request, HttpServletResponse response
-  ) throws IOException, ServletException{
-    response.setContentType("text/html; charset=utf-8");
-    response.setStatus(HttpServletResponse.SC_OK);
-    PrintWriter out = response.getWriter();
-    out.println("<html><body>Hello " + rand.nextInt() + "</body></html>");
+  ) throws IOException, ServletException {
+    try {
+      myHandler.handle(request, response);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
     baseRequest.setHandled(true);
   }
 }

@@ -1,4 +1,4 @@
-package org.tmotte.choogle.servejetty.framework;
+package org.tmotte.common.jettyserver;
 import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Executor;
@@ -21,29 +21,22 @@ import javax.servlet.http.HttpServletResponse;
  * The value of such a strategy is dubious, but the idea was to take advantage
  * of the whole non-blocking yada yada business.
  */
-public class MyAsyncProcessor implements Runnable {
+class MyAsyncProcessor implements Runnable {
 
-  private final static int runnersCount=12;
-  private ArrayBlockingQueue<AsyncContext> jobs = new ArrayBlockingQueue<>(100);
-  private ArrayBlockingQueue<MyRunnable> runners = new ArrayBlockingQueue<>(runnersCount);
-  private Executor executor = Executors.newFixedThreadPool(
-    2,
-    new ThreadFactory() {
-      int index=0;
-      ThreadFactory parent=Executors.defaultThreadFactory();
-      public Thread newThread(Runnable r){
-        index++;
-        Thread t=parent.newThread(r);
-        t.setName("Async "+index);
-        return t;
-      }
-    }
-  );
+  private final ArrayBlockingQueue<AsyncContext> jobs;
+  private final ArrayBlockingQueue<MyRunnable> runners;
+  private final Executor executor;
 
 
-  public MyAsyncProcessor(MyHandler imh) {
-    for (int i=0; i<runnersCount; i++)
+  public MyAsyncProcessor(MyHandler imh, int threadPoolSize) {
+    jobs = new ArrayBlockingQueue<>(threadPoolSize * 10);
+
+    int runnerCount = threadPoolSize * 2;
+    runners = new ArrayBlockingQueue<>(runnerCount);
+    for (int i=0; i<runnerCount; i++)
       runners.add(new MyRunnable(runners, imh));
+
+    executor=Executors.newFixedThreadPool(threadPoolSize, new MyThreadFactory());
   }
   public void add(AsyncContext asc) {
     jobs.add(asc);
@@ -94,6 +87,17 @@ public class MyAsyncProcessor implements Runnable {
         throw new RuntimeException("Input is null");
       this.context=context;
       return this;
+    }
+  }
+
+  private static class MyThreadFactory implements ThreadFactory {
+    int index=0;
+    ThreadFactory parent=Executors.defaultThreadFactory();
+    public Thread newThread(Runnable r){
+      index++;
+      Thread t=parent.newThread(r);
+      t.setName("Async "+index);
+      return t;
     }
   }
 }

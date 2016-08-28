@@ -3,8 +3,8 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.tmotte.choogle.clientnetty.NettyWorldCrawler;
-import org.tmotte.choogle.servejetty.framework.MyJettyServer;
+import org.tmotte.choogle.pagecrawlnetty.NettyWorldCrawler;
+import org.tmotte.common.jettyserver.MyJettyServer;
 import org.tmotte.choogle.servenetty.MyServer;
 
 public class Main {
@@ -17,7 +17,7 @@ public class Main {
       help();
     else
     if (arg0.equals("--server") || arg0.startsWith("-s"))
-      MyJettyServer.serve(new org.tmotte.choogle.service.LoadTest());
+      MyJettyServer.serve(new org.tmotte.choogle.service.LoadTest(), 8080, 2);
       //MyServer.serve(() -> new org.tmotte.choogle.servenetty.LoadTest());
     else
     if (arg0.equals("--client") || arg0.startsWith("-c"))
