@@ -28,7 +28,7 @@ public abstract class SiteCrawler {
 
   // RAPIDLY CHANGING STATE:
   private final ArrayDeque<URI> scheduled=new ArrayDeque<>(128);
-  private final Set<String> alreadyCrawled=new HashSet<>();
+  private final Set<String> scheduledSet=new HashSet<>();
   private final Set<URI>    elsewhere=new HashSet<>();
   private final Collection<String> tempLinks=new HashSet<>(128);
   private int count=0;
@@ -62,7 +62,7 @@ public abstract class SiteCrawler {
    */
   public SiteCrawler start(URI initialURI) throws Exception {
     if (debug(1))
-      System.out.println("SITE: "+initialURI);
+      System.out.println("CONNECT: "+initialURI);
     this.sitehost=initialURI.getHost();
     this.sitescheme=initialURI.getScheme();
     this.siteport=initialURI.getPort();
@@ -99,29 +99,34 @@ public abstract class SiteCrawler {
   protected abstract void read(URI uri) throws Exception;
 
   /** Call to the next scheduled URL for the current site. */
-  protected URI getNext() {
-    if (scheduled.size()==0)
-      return null;
-    return scheduled.removeFirst();
+  private URI getNext() {
+    return scheduled.size() > 0
+      ?scheduled.removeFirst()
+      :null;
   }
 
   /**
    * Should be called when headers from the server arrive.
+   * @return false if we don't want the data. Ideally, a HEAD request would
+   *   tell us what is coming before a GET to crawl the page.
    */
-  public void pageStart(
+  public boolean pageStart(
       URI currentURI,
       int statusCode,
+      String contentType,
       String eTag,
       String lastModified,
       boolean closed,
       boolean redirected,
       String locationHeader
-    )throws Exception{
+    ) throws Exception {
     if (debug(2)) {
       System.out.append("  ").append(sitehost)
         .append(" RESPONSE")
         .append(" STATUS: ")
-        .append(String.valueOf(statusCode));
+        .append(String.valueOf(statusCode))
+        .append(" CONTENT TYPE: ")
+        .append(contentType);
       if (eTag!=null)
         System.out.append(" ETAG: ").append(eTag);
       if (lastModified !=null)
@@ -130,12 +135,16 @@ public abstract class SiteCrawler {
         System.out.append(" CLOSED ");
       if (redirected)
         System.out.append(" REDIRECT: ").append(locationHeader);
+      System.out.print("\n  ");
     }
     if (redirected && locationHeader!=null)
       tempLinks.add(locationHeader);
     else
+    if (contentType != null && !contentType.startsWith("text"))
+      return false;
+    else
       count++;
-    if (debug(2)) System.out.print("\n  ");
+    return true;
   }
 
   /**
@@ -161,20 +170,24 @@ public abstract class SiteCrawler {
    * @return If we want more pages, true.
    */
   public boolean pageComplete(URI currentURI) throws Exception{
+    if (debug(2))
+      System.out.append("\n  ");
     if (debug(1))
       System.out
-        .append("\n  ")
         .append(sitehost).append(" COMPLETED")
         .append(" SIZE: ").append(String.valueOf(pageSize / 1024)).append("K")
+        .append(" URI: ").append(currentURI.toString())
         .append(" TITLE: ").append(pageParser.getTitle())
         .append("\n")
         ;
     if (count<limit || limit == -1){
       pageSize=0;
       addLinks(currentURI);
-      if (scheduled.size()>0)
+      URI nextURI = getNext();
+      if (nextURI!=null)
         try {
           resetPageParser();
+          read(nextURI);
           return true; //RETURN
         } catch (Exception e) {
           e.printStackTrace();
@@ -221,8 +234,11 @@ public abstract class SiteCrawler {
         if (maybe.getHost().equals(sitehost) &&
             maybe.getScheme().equals(sitescheme) &&
             maybe.getPort()==siteport){
-          if (!alreadyCrawled.contains(maybe.getRawPath()))
+          String raw = maybe.getRawPath();
+          if (!scheduledSet.contains(raw)) {
             scheduled.add(maybe);
+            scheduledSet.add(raw);
+          }
         }
         else elsewhere.add(maybe);
       }

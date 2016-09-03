@@ -22,6 +22,7 @@ public final class NettySiteCrawler extends SiteCrawler {
   private final EventLoopGroup elGroup;
   private Channel channel;
   private URI currentURI;
+  private boolean accepted=true;
 
   public NettySiteCrawler(
       EventLoopGroup elGroup, long limit, int debugLevel, boolean cacheResults
@@ -36,6 +37,7 @@ public final class NettySiteCrawler extends SiteCrawler {
   }
 
   protected @Override void read(URI uri) throws Exception {
+    accepted=true;
     if (channel==null)
       channel=MySiteConnector.connect(elGroup, myReceiver, uri);
     else
@@ -56,8 +58,9 @@ public final class NettySiteCrawler extends SiteCrawler {
     );
     request.headers().set(HttpHeaders.Names.HOST, uri.getHost());
     request.headers().set(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
-    //request.headers().set(HttpHeaders.Names.ACCEPT_ENCODING, HttpHeaders.Values.GZIP);
     request.headers().set("Accept-Encoding", "gzip, deflate");
+    // This does no good:
+    //request.headers().set("Accept", "text/*");
     channel.writeAndFlush(request);
   }
 
@@ -72,25 +75,31 @@ public final class NettySiteCrawler extends SiteCrawler {
       boolean redirected =
         statusCode==HttpResponseStatus.FOUND.code() ||
         statusCode==HttpResponseStatus.MOVED_PERMANENTLY.code();
+      String contentType=headers.get(HttpHeaders.Names.CONTENT_TYPE);
       String connectionStatus=headers.get(HttpHeaders.Names.CONNECTION);
       String location=headers.get(HttpHeaders.Names.LOCATION);
       String eTag=redirected ?null :headers.get(HttpHeaders.Names.ETAG);
       String lastModified=redirected ?null :headers.get(HttpHeaders.Names.LAST_MODIFIED);
       boolean closed =
         "CLOSE".equals(connectionStatus) || "close".equals(connectionStatus);
-      pageStart(currentURI, statusCode, eTag, lastModified, closed, redirected, location);
+      accepted =
+        pageStart(
+          currentURI,
+          statusCode, contentType,
+          eTag, lastModified,
+          closed, redirected,
+          location
+        );
     }
     @Override public void body(HttpContent body) throws Exception {
-      pageBody(currentURI, body.content().toString(CharsetUtil.UTF_8));
+      if (accepted)
+        pageBody(currentURI, body.content().toString(CharsetUtil.UTF_8));
     }
     @Override public void complete(HttpHeaders trailingHeaders) throws Exception {
+      // Close the connection if we have nothing left to read:
       URI temp = currentURI;
       currentURI = null;
-      if (pageComplete(temp)){
-        URI u = getNext();
-        if (u!=null) read(u);
-      }
-      else
+      if (!pageComplete(temp))
         channel.close();
     }
   };
