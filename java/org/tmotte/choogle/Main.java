@@ -4,8 +4,8 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.tmotte.choogle.pagecrawlnetty.NettyWorldCrawler;
+import org.tmotte.choogle.service.LoadTest;
 import org.tmotte.common.jettyserver.MyJettyServer;
-import org.tmotte.choogle.servenetty.MyServer;
 
 public class Main {
   public static void main(String[] args) throws Exception  {
@@ -17,8 +17,7 @@ public class Main {
       help();
     else
     if (arg0.equals("--server") || arg0.startsWith("-s"))
-      MyJettyServer.serve(new org.tmotte.choogle.service.LoadTest(), 8080, 2);
-      //MyServer.serve(() -> new org.tmotte.choogle.servenetty.LoadTest());
+      runServer(args);
     else
     if (arg0.equals("--client") || arg0.startsWith("-c"))
       runClient(args);
@@ -26,8 +25,29 @@ public class Main {
       help("Unexpected: "+arg0);
   }
 
+  private static void runServer(String[] args) throws Exception {
+    boolean db=false;
+    int debugLevel=0;
+    int i=0;
+    while (++i < args.length)
+      if (args[i].equals("--verbose") || args[i].startsWith("-v"))
+        debugLevel++;
+      else
+      if (args[i].equals("--db") || args[i].startsWith("-d"))
+        db=true;
+      else
+      if (args[i].startsWith("-")){
+        help("Unrecognized argument: "+args[i]);
+        return;
+      }
+    MyJettyServer.serve(
+      new LoadTest(debugLevel, db),
+      8080,
+      4
+    );
+  }
   private static void runClient(String[] args) throws Exception {
-    int debugLevel=1;
+    int debugLevel=0;
     long depth=1;
     boolean cacheResults=true;
 
