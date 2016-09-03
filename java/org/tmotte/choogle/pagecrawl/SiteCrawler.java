@@ -27,7 +27,7 @@ public abstract class SiteCrawler {
   private int siteport;
 
   // RAPIDLY CHANGING STATE:
-  protected final ArrayDeque<URI> scheduled=new ArrayDeque<>(128);
+  private final ArrayDeque<URI> scheduled=new ArrayDeque<>(128);
   private final Set<String> alreadyCrawled=new HashSet<>();
   private final Set<URI>    elsewhere=new HashSet<>();
   private final Collection<String> tempLinks=new HashSet<>(128);
