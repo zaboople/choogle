@@ -9,23 +9,25 @@ import org.tmotte.common.jettyserver.MyJettyServer;
 
 public class Main {
   public static void main(String[] args) throws Exception  {
+    boolean handled=false;
     String arg0=args.length==0 ?null :args[0];
     if (args.length==0)
       help();
     for (int i=0; i<args.length; i++) {
       if (args[i].equals("--help") || args[i].startsWith("-h"))
-        help();
+        handled=help();
       else
       if (args[i].equals("--server") || args[i].startsWith("-s"))
-        runServer(args);
+        handled=runServer(args);
       else
       if (args[i].equals("--client") || args[i].startsWith("-c"))
-        runClient(args);
+        handled=runClient(args);
     }
-    help("Expected --server, --client or --help");
+    if (!handled)
+      help("Expected --server, --client or --help");
   }
 
-  private static void runServer(String[] args) throws Exception {
+  private static boolean runServer(String[] args) throws Exception {
     boolean db=false;
     int debugLevel=0;
     for (int i=0; i<args.length; i++)
@@ -39,10 +41,8 @@ public class Main {
       if (args[i].equals("--db") || args[i].startsWith("-d"))
         db=true;
       else
-      if (args[i].startsWith("-")){
-        help("Unrecognized argument: "+args[i]);
-        return;
-      }
+      if (args[i].startsWith("-"))
+        return help("Unrecognized argument: "+args[i]);
 
     // The async functionality worked great until we started answering HEAD
     // requests, and then jetty started failing like:
@@ -56,8 +56,9 @@ public class Main {
       8080,
       -1
     );
+    return true;
   }
-  private static void runClient(String[] args) throws Exception {
+  private static boolean runClient(String[] args) throws Exception {
     int debugLevel=0;
     long depth=1;
     boolean cacheResults=true;
@@ -72,8 +73,7 @@ public class Main {
         try {
           depth=Long.parseLong(args[++i]);
         } catch (Exception e) {
-          help("Not an integer: "+args[i]);
-          return;
+          return help("Not an integer: "+args[i]);
         }
       else
       if (args[i].equals("--verbose") || args[i].startsWith("-v"))
@@ -82,20 +82,16 @@ public class Main {
       if (args[i].equals("--no-cache") || args[i].startsWith("-n"))
         cacheResults=false;
       else
-      if (args[i].startsWith("-")){
-        help("Unrecognized argument: "+args[i]);
-        return;
-      }
+      if (args[i].startsWith("-"))
+        return help("Unrecognized argument: "+args[i]);
       else {
         startURLs=i;
         break;
       }
 
     List<String> urls=java.util.Arrays.asList(args).subList(startURLs, args.length);
-    if (urls.size()==0){
-      help("Missing list of URLs");
-      return;
-    }
+    if (urls.size()==0)
+      return help("Missing list of URLs");
     System.out.println(String.format(
       "\nCRAWLING URL(S): %s\n",
       urls.stream().collect(Collectors.joining(", ")))
@@ -104,13 +100,14 @@ public class Main {
     NettyWorldCrawler.crawl(urls, depth, debugLevel, cacheResults);
     long s2=System.currentTimeMillis();
     System.out.println(String.format("Completed in %d ms", s2-s1));
+    return true;
   }
 
 
-  private static void help() throws Exception {
-    help(null);
+  private static boolean help() throws Exception {
+    return help(null);
   }
-  private static void help(String error) throws Exception {
+  private static boolean help(String error) throws Exception {
     Appendable a=error!=null ?System.err :System.out;
     if (error!=null){
       a.append("\n");
@@ -138,6 +135,7 @@ public class Main {
     System.out.flush();
     if (error!=null)
       System.exit(1);
+    return false;
   }
 
 }
