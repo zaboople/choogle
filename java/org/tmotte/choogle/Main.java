@@ -12,24 +12,27 @@ public class Main {
     String arg0=args.length==0 ?null :args[0];
     if (args.length==0)
       help();
-    else
-    if (arg0.equals("--help") || arg0.startsWith("-h"))
-      help();
-    else
-    if (arg0.equals("--server") || arg0.startsWith("-s"))
-      runServer(args);
-    else
-    if (arg0.equals("--client") || arg0.startsWith("-c"))
-      runClient(args);
-    else
-      help("Unexpected: "+arg0);
+    for (int i=0; i<args.length; i++) {
+      if (args[i].equals("--help") || args[i].startsWith("-h"))
+        help();
+      else
+      if (args[i].equals("--server") || args[i].startsWith("-s"))
+        runServer(args);
+      else
+      if (args[i].equals("--client") || args[i].startsWith("-c"))
+        runClient(args);
+    }
+    help("Expected --server, --client or --help");
   }
 
   private static void runServer(String[] args) throws Exception {
     boolean db=false;
     int debugLevel=0;
-    int i=0;
-    while (++i < args.length)
+    for (int i=0; i<args.length; i++)
+      if (args[i].equals("--server") || args[i].startsWith("-s")){
+        //no-op
+      }
+      else
       if (args[i].equals("--verbose") || args[i].startsWith("-v"))
         debugLevel++;
       else
@@ -40,10 +43,18 @@ public class Main {
         help("Unrecognized argument: "+args[i]);
         return;
       }
+
+    // The async functionality worked great until we started answering HEAD
+    // requests, and then jetty started failing like:
+    //   2016-09-04 14:30:28.661:WARN:oejs.HttpChannel:qtp471910020-15: //localhost/630701
+    //   java.lang.IllegalStateException: cannot reset buffer on committed response
+    //   java.lang.IllegalStateException: s=ASYNC_WOKEN i=false a=EXPIRED
+    // So I'm setting the async pool size to -1 to turn it off.
+    // Not so good, jetty.
     MyJettyServer.serve(
       new LoadTest(debugLevel, db),
       8080,
-      4
+      -1
     );
   }
   private static void runClient(String[] args) throws Exception {
@@ -51,8 +62,12 @@ public class Main {
     long depth=1;
     boolean cacheResults=true;
 
-    int i=0;
-    while (++i < args.length)
+    int startURLs=0;
+    for (int i=0; i<args.length; i++)
+      if (args[i].equals("--client") || args[i].startsWith("-c")){
+        //no-op
+      }
+      else
       if (args[i].equals("--depth") || args[i].startsWith("-d"))
         try {
           depth=Long.parseLong(args[++i]);
@@ -71,9 +86,12 @@ public class Main {
         help("Unrecognized argument: "+args[i]);
         return;
       }
-      else
+      else {
+        startURLs=i;
         break;
-    List<String> urls=java.util.Arrays.asList(args).subList(i, args.length);
+      }
+
+    List<String> urls=java.util.Arrays.asList(args).subList(startURLs, args.length);
     if (urls.size()==0){
       help("Missing list of URLs");
       return;
@@ -106,6 +124,8 @@ public class Main {
     + "  Parameters:\n"
     + "    --help:      Print this message\n"
     + "    --server:    Start up server\n"
+    + "      --verbose:   Debugging information. Specify more than once for even more debugging. \n"
+    + "      --db:        Do things with a database\n"
     + "    --client:    If no url's are given they will be read from stdin\n"
     + "      --verbose:   Debugging information. Specify more than once for even more debugging. \n"
     + "      --depth:     Number of site URL's to traverse before walking away. If <number> is \n"
