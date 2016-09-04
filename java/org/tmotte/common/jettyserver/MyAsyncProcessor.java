@@ -69,11 +69,12 @@ class MyAsyncProcessor implements Runnable {
       this.ih=ih;
     }
     public void run() {
+      // The context.complete() is what blows up when we combine HEAD & GET
+      // requests on Jetty.
       try {
-        ih.handle(
-          (HttpServletRequest)context.getRequest(),
-          (HttpServletResponse)context.getResponse()
-        );
+        HttpServletRequest req=(HttpServletRequest)context.getRequest();
+        HttpServletResponse res=(HttpServletResponse)context.getResponse();
+        ih.handle(req, res);
         context.complete();
       } catch (Exception e) {
         e.printStackTrace();
