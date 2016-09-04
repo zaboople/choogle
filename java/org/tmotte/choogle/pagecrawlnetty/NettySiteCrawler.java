@@ -34,7 +34,7 @@ public final class NettySiteCrawler extends SiteCrawler {
     this.elGroup=elGroup;
   }
 
-  public @Override void finish() throws Exception {
+  public @Override void close() throws Exception {
     if (channel!=null) channel.closeFuture().sync();
     channel = null;
   }
@@ -47,8 +47,11 @@ public final class NettySiteCrawler extends SiteCrawler {
   }
 
   private void startRequest(URI uri, boolean doHead) throws Exception {
-    if (channel==null)
+    if (channel==null){
+      if (debug(1))
+        System.out.append("CONNECT: ").append(uri.toString()).append("\n");
       channel=MySiteConnector.connect(elGroup, myReceiver, uri);
+    }
     else
     if (!channel.isOpen() || !channel.isActive()) {
       channel = null;

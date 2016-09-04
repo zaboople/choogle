@@ -62,8 +62,6 @@ public abstract class SiteCrawler {
    * Starts the crawling process. Calls read(uri).
    */
   public SiteCrawler start(URI initialURI) throws Exception {
-    if (debug(1))
-      System.out.println("CONNECT: "+initialURI);
     this.sitehost=initialURI.getHost();
     this.sitescheme=initialURI.getScheme();
     this.siteport=initialURI.getPort();
@@ -75,7 +73,7 @@ public abstract class SiteCrawler {
   /**
    * Called after start() to synchronize to completion.
    */
-  public abstract void finish() throws Exception;
+  public abstract void close() throws Exception;
 
   public URI wasSiteRedirect() {
     return count==1 && lastWasRedirect && scheduled.size()==0 && elsewhere.size()>=1
@@ -135,7 +133,8 @@ public abstract class SiteCrawler {
       if (lastModified !=null)
         System.out.append(" LAST MODIFIED: ").append(lastModified);
       if (closed)
-        System.out.append(" CLOSED ");
+        System.out.append("\n  ")
+          .append(sitehost).append(" CLOSED");
       if (redirected)
         System.out
           .append("\n  ").append(sitehost)
@@ -200,7 +199,7 @@ public abstract class SiteCrawler {
           e.printStackTrace();
         }
     }
-    if (debug(2))
+    if (debug(1))
       System.out
         .append(sitehost)
         .append("  ALL LINKS READ, CLOSING, COUNT: ")

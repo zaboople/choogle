@@ -50,9 +50,11 @@ public abstract class WorldCrawler  {
   // INTERNAL FUNCTIONS: //
   /////////////////////////
 
-  private List<SiteCrawler> crawl(List<String> uris, boolean retryOnce) throws Exception {
+  private void crawl(List<String> uris, boolean retryOnce) throws Exception {
+    //FIXME don't wait until all are finished to recrawl
+
     List<SiteCrawler> crawlers=start(uris);
-    for (SiteCrawler sc: crawlers) sc.finish(); //FIXME don't wait until all are finished to recrawl
+    for (SiteCrawler sc: crawlers) sc.close();
 
     // This handles the case where the initial page caused a redirect, from foo.com to www.foo.com,
     // or maybe from http to https, etc. Note the once-only recursion.
@@ -72,9 +74,8 @@ public abstract class WorldCrawler  {
       for (int i=crawlers.size()-1; i>=0; i--)
         if (!crawlers.get(i).reconnectIfUnfinished())
           crawlers.remove(i);
-      for (SiteCrawler sc: crawlers) sc.finish();
+      for (SiteCrawler sc: crawlers) sc.close();
     } while (crawlers.size()>0);
-    return crawlers;
   }
 
   private List<SiteCrawler> start(List<String> uris) throws Exception {
