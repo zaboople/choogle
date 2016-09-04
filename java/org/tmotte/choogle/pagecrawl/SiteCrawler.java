@@ -33,6 +33,7 @@ public abstract class SiteCrawler {
   private final Collection<String> tempLinks=new HashSet<>(128);
   private int count=0;
   private int pageSize=0;
+  private boolean lastWasRedirect=false;
 
 
   public SiteCrawler(
@@ -66,6 +67,7 @@ public abstract class SiteCrawler {
     this.sitehost=initialURI.getHost();
     this.sitescheme=initialURI.getScheme();
     this.siteport=initialURI.getPort();
+    scheduledSet.add(initialURI.getRawPath());
     read(initialURI);
     return this;
   }
@@ -76,7 +78,7 @@ public abstract class SiteCrawler {
   public abstract void finish() throws Exception;
 
   public URI wasSiteRedirect() {
-    return count==0 && scheduled.size()==0 && elsewhere.size()>=1
+    return count==1 && lastWasRedirect && scheduled.size()==0 && elsewhere.size()>=1
       ?elsewhere.iterator().next()
       :null;
   }
@@ -120,6 +122,7 @@ public abstract class SiteCrawler {
       boolean redirected,
       String locationHeader
     ) throws Exception {
+    lastWasRedirect=redirected;
     if (debug(2)) {
       System.out.append("  ").append(sitehost)
         .append(" RESPONSE")
@@ -134,17 +137,20 @@ public abstract class SiteCrawler {
       if (closed)
         System.out.append(" CLOSED ");
       if (redirected)
-        System.out.append(" REDIRECT: ").append(locationHeader);
+        System.out
+          .append("\n  ").append(sitehost)
+          .append(" REDIRECT: ").append(locationHeader);
       System.out.print("\n  ");
     }
-    if (redirected && locationHeader!=null)
+    if (redirected && locationHeader!=null){
       tempLinks.add(locationHeader);
+      return false;
+    }
     else
     if (contentType != null && !contentType.startsWith("text"))
       return false;
     else
-      count++;
-    return true;
+      return true;
   }
 
   /**
@@ -170,11 +176,12 @@ public abstract class SiteCrawler {
    * @return If we want more pages, true.
    */
   public boolean pageComplete(URI currentURI) throws Exception{
+    count++;
     if (debug(2))
       System.out.append("\n  ");
     if (debug(1))
       System.out
-        .append(sitehost).append(" COMPLETED")
+        .append(sitehost).append(" COMPLETE")
         .append(" SIZE: ").append(String.valueOf(pageSize / 1024)).append("K")
         .append(" URI: ").append(currentURI.toString())
         .append(" TITLE: ").append(pageParser.getTitle())
@@ -196,7 +203,9 @@ public abstract class SiteCrawler {
     if (debug(2))
       System.out
         .append(sitehost)
-        .append("  ALL LINKS READ, CLOSING\n");
+        .append("  ALL LINKS READ, CLOSING, COUNT: ")
+        .append(String.valueOf(count))
+        .append("\n");
     resetPageParser();
     return false;
   }
@@ -237,7 +246,8 @@ public abstract class SiteCrawler {
           String raw = maybe.getRawPath();
           if (!scheduledSet.contains(raw)) {
             scheduled.add(maybe);
-            scheduledSet.add(raw);
+            if (cacheResults)
+              scheduledSet.add(raw);
           }
         }
         else elsewhere.add(maybe);
@@ -269,6 +279,5 @@ public abstract class SiteCrawler {
       throw new RuntimeException("Could not interpret URI: "+uri);
     return realURI;
   }
-
 
 }

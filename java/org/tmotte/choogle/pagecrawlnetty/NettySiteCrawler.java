@@ -17,12 +17,15 @@ import org.tmotte.choogle.pagecrawl.SiteCrawler;
 import org.tmotte.common.nettyclient.MySiteConnector;
 import org.tmotte.common.nettyclient.MyResponseReceiver;
 
+/**
+ * Test content type acceptance with apache.org, which has lots of PDF's.
+ */
 public final class NettySiteCrawler extends SiteCrawler {
 
   private final EventLoopGroup elGroup;
   private Channel channel;
   private URI currentURI;
-  private boolean accepted=true;
+  private boolean accepted=true, onHead=true;
 
   public NettySiteCrawler(
       EventLoopGroup elGroup, long limit, int debugLevel, boolean cacheResults
@@ -36,14 +39,20 @@ public final class NettySiteCrawler extends SiteCrawler {
     channel = null;
   }
 
+
   protected @Override void read(URI uri) throws Exception {
     accepted=true;
+    onHead=true;
+    startRequest(uri, onHead);
+  }
+
+  private void startRequest(URI uri, boolean doHead) throws Exception {
     if (channel==null)
       channel=MySiteConnector.connect(elGroup, myReceiver, uri);
     else
     if (!channel.isOpen() || !channel.isActive()) {
       channel = null;
-      read(uri);
+      startRequest(uri, doHead);
       return;
     }
     currentURI=uri;
@@ -54,7 +63,9 @@ public final class NettySiteCrawler extends SiteCrawler {
         .append(uri.toString())
         .append("\n");
     HttpRequest request = new DefaultFullHttpRequest(
-      HttpVersion.HTTP_1_1, HttpMethod.GET, rawPath
+      HttpVersion.HTTP_1_1,
+      doHead ? HttpMethod.HEAD :HttpMethod.GET,
+      rawPath
     );
     request.headers().set(HttpHeaders.Names.HOST, uri.getHost());
     request.headers().set(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
@@ -92,15 +103,23 @@ public final class NettySiteCrawler extends SiteCrawler {
         );
     }
     @Override public void body(HttpContent body) throws Exception {
-      if (accepted)
+      if (accepted && !onHead)
         pageBody(currentURI, body.content().toString(CharsetUtil.UTF_8));
     }
     @Override public void complete(HttpHeaders trailingHeaders) throws Exception {
-      // Close the connection if we have nothing left to read:
-      URI temp = currentURI;
-      currentURI = null;
-      if (!pageComplete(temp))
-        channel.close();
+      if (accepted && onHead){
+        // Head succeeded, now do Get:
+        onHead=false;
+        startRequest(currentURI, false);
+      }
+      else {
+        // 1. Tell crawler page is done (accepted or not)
+        // 2. Close the connection if it says we have nothing left to read:
+        URI temp = currentURI;
+        currentURI = null;
+        if (!pageComplete(temp))
+          channel.close();
+      }
     }
   };
 
