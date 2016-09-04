@@ -121,26 +121,13 @@ public abstract class SiteCrawler {
       String locationHeader
     ) throws Exception {
     lastWasRedirect=redirected;
-    if (debug(2)) {
-      System.out.append("  ").append(sitehost)
-        .append(" RESPONSE")
-        .append(" STATUS: ")
-        .append(String.valueOf(statusCode))
-        .append(" CONTENT TYPE: ")
-        .append(contentType);
-      if (eTag!=null)
-        System.out.append(" ETAG: ").append(eTag);
-      if (lastModified !=null)
-        System.out.append(" LAST MODIFIED: ").append(lastModified);
-      if (closed)
-        System.out.append("\n  ")
-          .append(sitehost).append(" CLOSED");
-      if (redirected)
-        System.out
-          .append("\n  ").append(sitehost)
-          .append(" REDIRECT: ").append(locationHeader);
-      System.out.print("\n  ");
-    }
+    if (debug(2))
+      debugHeaders(
+        currentURI, statusCode, contentType,
+        eTag, lastModified,
+        closed, redirected,
+        locationHeader
+      );
     if (redirected && locationHeader!=null){
       tempLinks.add(locationHeader);
       return false;
@@ -158,15 +145,7 @@ public abstract class SiteCrawler {
    */
   public void pageBody(URI currentURI, String s) throws Exception{
     pageSize+=s.length();
-    if (debug(2)) {
-      if (debug(4)) {
-        System.out.print("\n>>>");
-        System.out.print(s);
-        System.out.print("<<<\n");
-      }
-      else
-        System.out.print(".");
-    }
+    if (debug(2)) debugPageBody(s);
     pageParser.add(s);
   }
 
@@ -176,16 +155,8 @@ public abstract class SiteCrawler {
    */
   public boolean pageComplete(URI currentURI) throws Exception{
     count++;
-    if (debug(2))
-      System.out.append("\n  ");
-    if (debug(1))
-      System.out
-        .append(sitehost).append(" COMPLETE")
-        .append(" SIZE: ").append(String.valueOf(pageSize / 1024)).append("K")
-        .append(" URI: ").append(currentURI.toString())
-        .append(" TITLE: ").append(pageParser.getTitle())
-        .append("\n")
-        ;
+    if (debug(2)) System.out.append("\n  ");
+    if (debug(1)) debugPageComplete(currentURI);
     if (count<limit || limit == -1){
       pageSize=0;
       addLinks(currentURI);
@@ -199,12 +170,7 @@ public abstract class SiteCrawler {
           e.printStackTrace();
         }
     }
-    if (debug(1))
-      System.out
-        .append(sitehost)
-        .append("  ALL LINKS READ, CLOSING, COUNT: ")
-        .append(String.valueOf(count))
-        .append("\n");
+    if (debug(1)) debugSiteComplete();
     resetPageParser();
     return false;
   }
@@ -213,7 +179,7 @@ public abstract class SiteCrawler {
   // ETC.: //
   ///////////
 
-  protected boolean debug(int level) {
+  protected final boolean debug(int level) {
     return level <= debugLevel;
   }
 
@@ -222,9 +188,6 @@ public abstract class SiteCrawler {
   /////////////////////////
 
   private void addLinks(URI relativeTo) {
-
-    // 1. If we found some links, add them to our schedule
-    //    of what to crawl:
     if (scheduled.size()<limit || limit == -1)
       for (String maybeStr: tempLinks) {
         URI maybe=null;
@@ -252,19 +215,7 @@ public abstract class SiteCrawler {
         else elsewhere.add(maybe);
       }
 
-    // 2. Print some helpful debugging:
-    if (debug(2))
-      System.out
-        .append("  ").append(sitehost)
-        .append(" RESPONSE COUNT: ").append(String.valueOf(count));
-    if (debug(3))
-      System.out
-        .append(" LINK COUNT: "+tempLinks.size())
-        .append(" SCHEDULED: ").append(String.valueOf(scheduled.size()))
-        .append(" ELSEWHERE: ").append(String.valueOf(elsewhere.size()));
-    if (debug(2))
-      System.out.append("\n");
-
+    if (debug(2)) debugLinkProcessing();
   }
 
   private void resetPageParser() {
@@ -277,6 +228,80 @@ public abstract class SiteCrawler {
     if (realURI==null)
       throw new RuntimeException("Could not interpret URI: "+uri);
     return realURI;
+  }
+
+
+  ////////////
+  // DEBUG: //
+  ////////////
+
+  private void debugHeaders(
+      URI currentURI,
+      int statusCode,
+      String contentType,
+      String eTag,
+      String lastModified,
+      boolean closed,
+      boolean redirected,
+      String locationHeader
+    ){
+    System.out.append("  ").append(sitehost)
+      .append(" RESPONSE")
+      .append(" STATUS: ")
+      .append(String.valueOf(statusCode))
+      .append(" CONTENT TYPE: ")
+      .append(contentType);
+    if (eTag!=null)
+      System.out.append(" ETAG: ").append(eTag);
+    if (lastModified !=null)
+      System.out.append(" LAST MODIFIED: ").append(lastModified);
+    if (closed)
+      System.out.append("\n  ")
+        .append(sitehost).append(" CLOSED");
+    if (redirected)
+      System.out
+        .append("\n  ").append(sitehost)
+        .append(" REDIRECT: ").append(locationHeader);
+    System.out.print("\n  ");
+  }
+
+  private void debugPageBody(String s) {
+    if (debug(4))
+      System.out.append("\n>>>").append(s).append("<<<\n");
+    else
+      System.out.append(".");
+  }
+
+  private void debugPageComplete(URI currentURI) {
+    System.out
+      .append(sitehost).append(" COMPLETE")
+      .append(" SIZE: ").append(String.valueOf(pageSize / 1024)).append("K")
+      .append(" URI: ").append(currentURI.toString())
+      .append(" TITLE: ").append(pageParser.getTitle())
+      .append("\n")
+      ;
+  }
+
+  private void debugLinkProcessing() {
+    if (debug(2))
+      System.out
+        .append("  ").append(sitehost)
+        .append(" RESPONSE COUNT: ").append(String.valueOf(count));
+    if (debug(3))
+      System.out
+        .append(" LINK COUNT: "+tempLinks.size())
+        .append(" SCHEDULED: ").append(String.valueOf(scheduled.size()))
+        .append(" ELSEWHERE: ").append(String.valueOf(elsewhere.size()));
+    if (debug(2))
+      System.out.append("\n");
+  }
+
+  private void debugSiteComplete() {
+    System.out
+      .append(sitehost)
+      .append("  ALL LINKS READ, CLOSING, COUNT: ")
+      .append(String.valueOf(count))
+      .append("\n");
   }
 
 }
