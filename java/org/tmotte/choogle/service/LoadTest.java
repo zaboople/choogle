@@ -33,40 +33,50 @@ public class LoadTest implements MyHandler {
 
   public void handle(HttpServletRequest request, HttpServletResponse response) throws Exception {
 
-    // Set content type and get writer going:
-    response.setContentType("text/html; charset=utf-8");
-    PrintWriter out = response.getWriter();
-
-    // Get path info:
+    // Get path info & method, and provide a minimalist log:
     String path=request.getPathInfo();
-    System.out.append("Request: ").append(path).append("\n");
+    String method = request.getMethod();
+    if (debugLevel > 0)
+      System.out.append(method).append("\t").append(path).append("\n");
+
+    // Ignore favicon
     if (path.equals("/favicon.ico")) {
       response.setStatus(HttpServletResponse.SC_NOT_FOUND);
       return;
     }
 
-    // Get requested index:
-    String indexStr=path.substring(
-      path.lastIndexOf("/")
-    );
-    long index=1;
-    Exception parseFail=null;
-    if (indexStr.length()>1)
-      try {
-        index=Long.parseLong(indexStr.substring(1));
-      } catch (Exception e) {
-        parseFail=e;
-      }
-    long nextIndex=index-1;
-
-    if (dataSource != null) doDatabase(index);
-
-    // Write response:
-    // FIXME this behaves badly when we blow up; it doesn't close the http connection.
+    // Set basic return headers:
+    response.setContentType("text/html; charset=utf-8");
     response.setStatus(HttpServletResponse.SC_OK);
+
+    // HEAD just gets a blessing and we're done:
+    if ("HEAD".equals(method))
+      return;
+
+    PrintWriter out = response.getWriter();
     try {
+
+      // Get requested index:
+      String indexStr=path.substring(
+        path.lastIndexOf("/")
+      );
+      long index=1;
+      Exception parseFail=null;
+      if (indexStr.length()>1)
+        try {
+          index=Long.parseLong(indexStr.substring(1));
+        } catch (Exception e) {
+          parseFail=e;
+        }
+      long nextIndex=index-1;
+
+      if (dataSource != null) doDatabase(index);
+
+      // Write response:
+      // FIXME this behaves badly when we blow up; it doesn't close the http connection.
       generator.makeContent(out, parseFail, index);
     } finally {
+      out.flush();
       out.close();
     }
   }
