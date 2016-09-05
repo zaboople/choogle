@@ -25,7 +25,7 @@ public final class NettySiteCrawler extends SiteCrawler {
   private final EventLoopGroup elGroup;
   private Channel channel;
   private URI currentURI;
-  private boolean accepted=true, onHead=true;
+  private boolean onHead=true;
 
   public NettySiteCrawler(
       EventLoopGroup elGroup, long limit, int debugLevel, boolean cacheResults
@@ -40,13 +40,17 @@ public final class NettySiteCrawler extends SiteCrawler {
   }
 
 
-  protected @Override void read(URI uri) throws Exception {
-    accepted=true;
+  protected @Override void doHead(URI uri) throws Exception {
     onHead=true;
+    startRequest(uri);
+  }
+  protected @Override void doGet(URI uri) throws Exception {
+    onHead=false;
     startRequest(uri);
   }
 
   private void startRequest(URI uri) throws Exception {
+    currentURI=uri;
     if (channel==null){
       if (debug(1))
         System.out.append("CONNECT: ").append(uri.toString()).append("\n");
@@ -58,7 +62,6 @@ public final class NettySiteCrawler extends SiteCrawler {
       startRequest(uri);
       return;
     }
-    currentURI=uri;
     String rawPath=uri.getRawPath();
     HttpRequest request = new DefaultFullHttpRequest(
       HttpVersion.HTTP_1_1,
@@ -91,33 +94,22 @@ public final class NettySiteCrawler extends SiteCrawler {
       String lastModified=redirected ?null :headers.get(HttpHeaders.Names.LAST_MODIFIED);
       boolean closed =
         "CLOSE".equals(connectionStatus) || "close".equals(connectionStatus);
-      accepted =
-        pageStart(
-          currentURI,
-          statusCode, contentType,
-          eTag, lastModified,
-          closed, redirected,
-          location
-        );
+      pageStart(
+        currentURI,
+        statusCode, contentType,
+        eTag, lastModified,
+        closed, redirected,
+        location
+      );
     }
     @Override public void body(HttpContent body) throws Exception {
-      if (accepted && !onHead)
-        pageBody(currentURI, body.content().toString(CharsetUtil.UTF_8));
+      pageBody(currentURI, body.content().toString(CharsetUtil.UTF_8));
     }
     @Override public void complete(HttpHeaders trailingHeaders) throws Exception {
-      if (accepted && onHead){
-        // Head succeeded, now do Get:
-        onHead=false;
-        startRequest(currentURI);
-      }
-      else {
-        // 1. Tell crawler page is done (accepted or not)
-        // 2. Close the connection if it says we have nothing left to read:
-        URI temp = currentURI;
-        currentURI = null;
-        if (!pageComplete(temp))
-          channel.close();
-      }
+      URI temp = currentURI;
+      currentURI = null;
+      if (!pageComplete(temp, onHead))
+        channel.close();
     }
   };
 

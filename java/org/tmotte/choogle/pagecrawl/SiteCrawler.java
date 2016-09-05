@@ -9,9 +9,13 @@ import org.tmotte.choogle.pagecrawl.AnchorReader;
 import org.tmotte.choogle.pagecrawl.Link;
 
 /**
- * For crawling a single web site. There are two key abstract methods: read(uri) and finish().
- * A complete crawler should implement read(uri) and call the pageStart/pageBody/pageComplete()
- * methods as data arrives; it should implement finish() for synchronizing completion of the work.
+ * For crawling a single web site. There are three key abstract methods:
+ *  doHead(uri)
+ *  doGet(uri)
+ *  close().
+ *
+ * Your implementation's doHead/doGet(uri) should call the pageStart/pageBody/pageComplete()
+ * methods as data arrives; it should implement close() for synchronizing completion of the work.
  *
  * Note that this class is not threadsafe and is really intended for use with a non-blocking IO library.
  *
@@ -39,6 +43,7 @@ public abstract class SiteCrawler {
   private int count=0;
   private int pageSize=0;
   private boolean lastWasRedirect=false;
+  private boolean accepted=true;
 
 
   public SiteCrawler(
@@ -71,7 +76,7 @@ public abstract class SiteCrawler {
     this.sitescheme=initialURI.getScheme();
     this.siteport=initialURI.getPort();
     scheduledSet.add(initialURI.getRawPath());
-    doRead(initialURI);
+    read(initialURI);
     return this;
   }
 
@@ -97,16 +102,14 @@ public abstract class SiteCrawler {
   // PAGE-LEVEL API'S: //
   ///////////////////////
 
-  private void doRead(URI uri) throws Exception {
-    debugDoRead(uri);
-    read(uri);
+  private void read(URI uri) throws Exception {
+    accepted=true;
+    debugDoHead(uri);
+    doHead(uri);
   }
 
-  /**
-   * Needs to be implemented to both read the URI and call pageStart/pageBody/pageComplete()
-   * as data comes in.
-   */
-  protected abstract void read(URI uri) throws Exception;
+  protected abstract void doHead(URI uri) throws Exception;
+  protected abstract void doGet(URI uri) throws Exception;
 
   /** Call to the next scheduled URL for the current site. */
   private URI getNext() {
@@ -120,7 +123,7 @@ public abstract class SiteCrawler {
    * @return false if we don't want the data. Ideally, a HEAD request would
    *   tell us what is coming before a GET to crawl the page.
    */
-  public final boolean pageStart(
+  public final void pageStart(
       URI currentURI,
       int statusCode,
       String contentType,
@@ -140,13 +143,13 @@ public abstract class SiteCrawler {
       );
     if (redirected && locationHeader!=null){
       tempLinks.add(locationHeader);
-      return false;
+      accepted=false;
     }
     else
     if (contentType != null && !contentType.startsWith("text"))
-      return false;
+      accepted=false;
     else
-      return true;
+      accepted=true;
   }
 
   /**
@@ -154,6 +157,7 @@ public abstract class SiteCrawler {
    * incrementally as chunks arrive.
    */
   public final void pageBody(URI currentURI, String s) throws Exception{
+    if (!accepted) return;
     pageSize+=s.length();
     if (debug(2)) debugPageBody(s);
     pageParser.add(s);
@@ -163,9 +167,13 @@ public abstract class SiteCrawler {
    * Should be called when the page is complete.
    * @return If we want more pages, true.
    */
-  public final boolean pageComplete(URI currentURI) throws Exception{
+  public final boolean pageComplete(URI currentURI, boolean onHead) throws Exception{
+    if (onHead && accepted) {
+      doGet(currentURI);
+      return true;
+    }
+
     count++;
-    if (debug(2)) System.out.append("\n  ");
     if (debug(1)) debugPageComplete(currentURI);
     if (count<limit || limit == -1){
       pageSize=0;
@@ -174,7 +182,7 @@ public abstract class SiteCrawler {
       if (nextURI!=null)
         try {
           resetPageParser();
-          doRead(nextURI);
+          read(nextURI);
           return true; //RETURN
         } catch (Exception e) {
           e.printStackTrace();
@@ -247,7 +255,7 @@ public abstract class SiteCrawler {
   //               //
   ///////////////////
 
-  private void debugDoRead(URI uri) {
+  private void debugDoHead(URI uri) {
     if (debug(2))
       System.out
         .append("\nSTARTING: ")
@@ -292,6 +300,7 @@ public abstract class SiteCrawler {
   }
 
   private void debugPageComplete(URI currentURI) {
+    if (debug(2)) System.out.append("\n  ");
     System.out
       .append(String.format("%1$tY-%1$tm-%1$td %1$tH:%1$tM:%1$tS ", new java.util.Date()))
       .append(sitehost).append(" COMPLETE #").append(String.valueOf(count))
