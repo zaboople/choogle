@@ -52,7 +52,6 @@ public abstract class WorldCrawler  {
 
   private void crawl(List<String> uris, boolean retryOnce) throws Exception {
     //FIXME don't wait until all are finished to recrawl
-    //FIXME when disconnected we lose the current URI.
 
     List<SiteCrawler> crawlers=start(uris);
     for (SiteCrawler sc: crawlers) sc.close();
