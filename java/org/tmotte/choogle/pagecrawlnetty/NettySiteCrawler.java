@@ -34,12 +34,6 @@ public final class NettySiteCrawler extends SiteCrawler {
     this.elGroup=elGroup;
   }
 
-  public @Override void close() throws Exception {
-    if (channel!=null) channel.closeFuture().sync();
-    channel = null;
-  }
-
-
   protected @Override void doHead(URI uri) throws Exception {
     onHead=true;
     startRequest(uri);
@@ -47,6 +41,10 @@ public final class NettySiteCrawler extends SiteCrawler {
   protected @Override void doGet(URI uri) throws Exception {
     onHead=false;
     startRequest(uri);
+  }
+  public @Override void close() throws Exception {
+    if (channel!=null) channel.closeFuture().sync();
+    channel = null;
   }
 
   private void startRequest(URI uri) throws Exception {

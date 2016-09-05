@@ -40,15 +40,14 @@ public abstract class SiteCrawler {
   private final Set<String> scheduledSet=new HashSet<>();
   private final Set<URI>    elsewhere=new HashSet<>();
   private final Collection<String> tempLinks=new HashSet<>(128);
+  private URI uriInFlight;
   private int count=0;
   private int pageSize=0;
   private boolean lastWasRedirect=false;
   private boolean accepted=true;
 
 
-  public SiteCrawler(
-      long limit, int debugLevel, boolean cacheResults
-    ){
+  public SiteCrawler(long limit, int debugLevel, boolean cacheResults){
     this.debugLevel=debugLevel;
     this.pageParser=new AnchorReader(
       tempLinks,
@@ -92,7 +91,10 @@ public abstract class SiteCrawler {
   }
   public final boolean reconnectIfUnfinished() throws Exception {
     if ((count<limit || limit==-1) && scheduled.size() > 0){
-      start(scheduled.removeFirst());
+      if (uriInFlight != null)
+        start(uriInFlight);
+      else
+        start(scheduled.removeFirst());
       return true;
     }
     return false;
@@ -103,6 +105,7 @@ public abstract class SiteCrawler {
   ///////////////////////
 
   private void read(URI uri) throws Exception {
+    uriInFlight=uri;
     accepted=true;
     debugDoHead(uri);
     doHead(uri);
@@ -168,6 +171,7 @@ public abstract class SiteCrawler {
    * @return If we want more pages, true.
    */
   public final boolean pageComplete(URI currentURI, boolean onHead) throws Exception{
+    uriInFlight=null;
     if (onHead && accepted) {
       doGet(currentURI);
       return true;
