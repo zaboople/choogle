@@ -274,7 +274,8 @@ public abstract class SiteCrawler {
 
   private void debugPageComplete(URI currentURI) {
     System.out
-      .append(sitehost).append(" COMPLETE")
+      .append(String.format("%1$tY-%1$tm-%1$td %1$tH:%1$tM:%1$tS ", new java.util.Date()))
+      .append(sitehost).append(" COMPLETE #").append(String.valueOf(count))
       .append(" SIZE: ").append(String.valueOf(pageSize / 1024)).append("K")
       .append(" URI: ").append(currentURI.toString())
       .append(" TITLE: ").append(pageParser.getTitle())
