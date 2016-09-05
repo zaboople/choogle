@@ -43,10 +43,10 @@ public final class NettySiteCrawler extends SiteCrawler {
   protected @Override void read(URI uri) throws Exception {
     accepted=true;
     onHead=true;
-    startRequest(uri, onHead);
+    startRequest(uri);
   }
 
-  private void startRequest(URI uri, boolean doHead) throws Exception {
+  private void startRequest(URI uri) throws Exception {
     if (channel==null){
       if (debug(1))
         System.out.append("CONNECT: ").append(uri.toString()).append("\n");
@@ -55,14 +55,14 @@ public final class NettySiteCrawler extends SiteCrawler {
     else
     if (!channel.isOpen() || !channel.isActive()) {
       channel = null;
-      startRequest(uri, doHead);
+      startRequest(uri);
       return;
     }
     currentURI=uri;
     String rawPath=uri.getRawPath();
     HttpRequest request = new DefaultFullHttpRequest(
       HttpVersion.HTTP_1_1,
-      doHead ? HttpMethod.HEAD :HttpMethod.GET,
+      onHead ? HttpMethod.HEAD :HttpMethod.GET,
       rawPath
     );
     request.headers().set(HttpHeaders.Names.HOST, uri.getHost());
@@ -108,7 +108,7 @@ public final class NettySiteCrawler extends SiteCrawler {
       if (accepted && onHead){
         // Head succeeded, now do Get:
         onHead=false;
-        startRequest(currentURI, false);
+        startRequest(currentURI);
       }
       else {
         // 1. Tell crawler page is done (accepted or not)
