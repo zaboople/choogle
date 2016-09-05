@@ -60,11 +60,6 @@ public final class NettySiteCrawler extends SiteCrawler {
     }
     currentURI=uri;
     String rawPath=uri.getRawPath();
-    if (debug(2))
-      System.out
-        .append("\nSTARTING: ")
-        .append(uri.toString())
-        .append("\n");
     HttpRequest request = new DefaultFullHttpRequest(
       HttpVersion.HTTP_1_1,
       doHead ? HttpMethod.HEAD :HttpMethod.GET,

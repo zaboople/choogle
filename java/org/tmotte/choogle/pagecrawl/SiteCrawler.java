@@ -12,6 +12,11 @@ import org.tmotte.choogle.pagecrawl.Link;
  * For crawling a single web site. There are two key abstract methods: read(uri) and finish().
  * A complete crawler should implement read(uri) and call the pageStart/pageBody/pageComplete()
  * methods as data arrives; it should implement finish() for synchronizing completion of the work.
+ *
+ * Note that this class is not threadsafe and is really intended for use with a non-blocking IO library.
+ *
+ * Testing note: Apache.org is a great place to test connection close, as they tend to limit
+ * connection lifetime.
  */
 public abstract class SiteCrawler {
 
@@ -54,19 +59,19 @@ public abstract class SiteCrawler {
   // SITE-LEVEL API's: //
   ///////////////////////
 
-  public SiteCrawler start(String initialURI) throws Exception {
+  public final SiteCrawler start(String initialURI) throws Exception {
     return start(getURI(initialURI));
   }
 
   /**
    * Starts the crawling process. Calls read(uri).
    */
-  public SiteCrawler start(URI initialURI) throws Exception {
+  public final SiteCrawler start(URI initialURI) throws Exception {
     this.sitehost=initialURI.getHost();
     this.sitescheme=initialURI.getScheme();
     this.siteport=initialURI.getPort();
     scheduledSet.add(initialURI.getRawPath());
-    read(initialURI);
+    doRead(initialURI);
     return this;
   }
 
@@ -75,12 +80,12 @@ public abstract class SiteCrawler {
    */
   public abstract void close() throws Exception;
 
-  public URI wasSiteRedirect() {
+  public final URI wasSiteRedirect() {
     return count==1 && lastWasRedirect && scheduled.size()==0 && elsewhere.size()>=1
       ?elsewhere.iterator().next()
       :null;
   }
-  public boolean reconnectIfUnfinished() throws Exception {
+  public final boolean reconnectIfUnfinished() throws Exception {
     if ((count<limit || limit==-1) && scheduled.size() > 0){
       start(scheduled.removeFirst());
       return true;
@@ -91,6 +96,11 @@ public abstract class SiteCrawler {
   ///////////////////////
   // PAGE-LEVEL API'S: //
   ///////////////////////
+
+  private void doRead(URI uri) throws Exception {
+    debugDoRead(uri);
+    read(uri);
+  }
 
   /**
    * Needs to be implemented to both read the URI and call pageStart/pageBody/pageComplete()
@@ -110,7 +120,7 @@ public abstract class SiteCrawler {
    * @return false if we don't want the data. Ideally, a HEAD request would
    *   tell us what is coming before a GET to crawl the page.
    */
-  public boolean pageStart(
+  public final boolean pageStart(
       URI currentURI,
       int statusCode,
       String contentType,
@@ -143,7 +153,7 @@ public abstract class SiteCrawler {
    * Should be called when the body of the page is delivered; can be called
    * incrementally as chunks arrive.
    */
-  public void pageBody(URI currentURI, String s) throws Exception{
+  public final void pageBody(URI currentURI, String s) throws Exception{
     pageSize+=s.length();
     if (debug(2)) debugPageBody(s);
     pageParser.add(s);
@@ -153,7 +163,7 @@ public abstract class SiteCrawler {
    * Should be called when the page is complete.
    * @return If we want more pages, true.
    */
-  public boolean pageComplete(URI currentURI) throws Exception{
+  public final boolean pageComplete(URI currentURI) throws Exception{
     count++;
     if (debug(2)) System.out.append("\n  ");
     if (debug(1)) debugPageComplete(currentURI);
@@ -164,7 +174,7 @@ public abstract class SiteCrawler {
       if (nextURI!=null)
         try {
           resetPageParser();
-          read(nextURI);
+          doRead(nextURI);
           return true; //RETURN
         } catch (Exception e) {
           e.printStackTrace();
@@ -231,10 +241,19 @@ public abstract class SiteCrawler {
   }
 
 
-  ////////////
-  // DEBUG: //
-  ////////////
+  ///////////////////
+  //               //
+  //     DEBUG:    //
+  //               //
+  ///////////////////
 
+  private void debugDoRead(URI uri) {
+    if (debug(2))
+      System.out
+        .append("\nSTARTING: ")
+        .append(uri.toString())
+        .append("\n");
+  }
   private void debugHeaders(
       URI currentURI,
       int statusCode,

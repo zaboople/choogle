@@ -37,7 +37,10 @@ public class LoadTest implements MyHandler {
     String path=request.getPathInfo();
     String method = request.getMethod();
     if (debugLevel > 0)
-      System.out.append(method).append("\t").append(path).append("\n");
+      System.out
+        .append(String.format("%1$tY-%1$tm-%1$td %1$tH:%1$tM:%1$tS ", new java.util.Date()))
+        .append(String.format("%1$-8s ", method))
+        .append(path).append("\n");
 
     // Ignore favicon
     if (path.equals("/favicon.ico")) {
@@ -113,5 +116,5 @@ public class LoadTest implements MyHandler {
       conn.close();
     }
   }
-
 }
+
