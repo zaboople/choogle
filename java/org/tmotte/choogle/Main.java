@@ -8,7 +8,7 @@ import org.tmotte.choogle.service.LoadTest;
 import org.tmotte.common.jettyserver.MyJettyServer;
 
 public class Main {
-  public static void main(String[] args) throws Exception  {
+  public static void main(String[] args) throws Exception {
     boolean handled=false;
     String arg0=args.length==0 ?null :args[0];
     if (args.length==0)
