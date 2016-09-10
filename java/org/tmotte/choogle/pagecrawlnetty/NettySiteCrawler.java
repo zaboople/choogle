@@ -13,9 +13,10 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.util.CharsetUtil;
 import java.net.URI;
+import java.util.function.Consumer;
 import org.tmotte.choogle.pagecrawl.SiteCrawler;
-import org.tmotte.common.nettyclient.MySiteConnector;
 import org.tmotte.common.nettyclient.MyResponseReceiver;
+import org.tmotte.common.nettyclient.MySiteConnector;
 
 /**
  * Test content type acceptance with apache.org, which has lots of PDF's.
@@ -45,6 +46,14 @@ public final class NettySiteCrawler extends SiteCrawler {
   public @Override void close() throws Exception {
     if (channel!=null) channel.closeFuture().sync();
     channel = null;
+  }
+  public @Override void onClose(Consumer<SiteCrawler> csc) throws Exception {
+    if (channel!=null) {
+      ChannelFuture fut=channel.closeFuture();
+
+    }
+    channel = null;
+    csc.accept(this);
   }
 
   private void startRequest(URI uri) throws Exception {

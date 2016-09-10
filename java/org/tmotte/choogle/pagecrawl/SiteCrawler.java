@@ -5,8 +5,10 @@ import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.function.Consumer;
 import org.tmotte.choogle.pagecrawl.AnchorReader;
 import org.tmotte.choogle.pagecrawl.Link;
+
 
 /**
  * For crawling a single web site. There are three key abstract methods:
@@ -83,21 +85,25 @@ public abstract class SiteCrawler {
    * Called after start() to synchronize to completion.
    */
   public abstract void close() throws Exception;
+  public abstract void onClose(Consumer<SiteCrawler> csc) throws Exception;
 
-  public final URI wasSiteRedirect() {
-    return count==1 && lastWasRedirect && scheduled.size()==0 && elsewhere.size()>=1
-      ?elsewhere.iterator().next()
-      :null;
-  }
   public final boolean reconnectIfUnfinished() throws Exception {
+    if (count==1 && lastWasRedirect && scheduled.size()==0 && elsewhere.size()>=1){
+      // Redirect:
+      start(elsewhere.iterator().next());
+      return true;
+    }
+    else
     if ((count<limit || limit==-1) && scheduled.size() > 0){
+      // Connection dropped:
       if (uriInFlight != null)
         start(uriInFlight);
       else
         start(scheduled.removeFirst());
       return true;
     }
-    return false;
+    else
+      return false;
   }
 
   ///////////////////////
@@ -136,7 +142,7 @@ public abstract class SiteCrawler {
       boolean redirected,
       String locationHeader
     ) throws Exception {
-    lastWasRedirect=redirected;
+    lastWasRedirect=redirected && !lastWasRedirect;
     if (debug(2))
       debugHeaders(
         currentURI, statusCode, contentType,
