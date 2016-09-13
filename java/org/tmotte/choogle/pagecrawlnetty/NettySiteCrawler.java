@@ -19,19 +19,23 @@ import org.tmotte.common.nettyclient.MyResponseReceiver;
 import org.tmotte.common.nettyclient.MySiteConnector;
 
 /**
- * Test content type acceptance with apache.org, which has lots of PDF's.
+ * Note: Test content type acceptance with apache.org, which has lots of PDF's.
  */
 public final class NettySiteCrawler extends SiteCrawler {
 
   private final EventLoopGroup elGroup;
-  private Channel channel;
+  private volatile InsaneChannel currChan=new InsaneChannel();
   private URI currentURI;
   private boolean onHead=true;
 
   public NettySiteCrawler(
-      EventLoopGroup elGroup, long limit, int debugLevel, boolean cacheResults
+      EventLoopGroup elGroup,
+      Consumer<SiteCrawler> whenComplete,
+      long limit,
+      int debugLevel,
+      boolean cacheResults
     ) throws Exception{
-    super(limit, debugLevel, cacheResults);
+    super(whenComplete, limit, debugLevel, cacheResults);
     this.elGroup=elGroup;
   }
 
@@ -43,29 +47,39 @@ public final class NettySiteCrawler extends SiteCrawler {
     onHead=false;
     startRequest(uri);
   }
-  public @Override void close() throws Exception {
-    if (channel!=null) channel.closeFuture().sync();
-    channel = null;
-  }
-  public @Override void onClose(Consumer<SiteCrawler> csc) throws Exception {
-    if (channel!=null) {
-      ChannelFuture fut=channel.closeFuture();
 
+  //////////////////////
+  // PRIVATE METHODS: //
+  //////////////////////
+
+  private static class InsaneChannel {
+    private Channel c;
+    private boolean hasChannel=false;
+    public synchronized Channel getChannel() {
+      return c;
     }
-    channel = null;
-    csc.accept(this);
+    public synchronized Channel setChannel(Channel newChan) {
+      c=newChan;
+      hasChannel=c!=null;
+      return c;
+    }
+    public synchronized String toString() {
+      return String.valueOf(hasChannel)+String.valueOf(c);
+    }
   }
 
   private void startRequest(URI uri) throws Exception {
+    //FIXME I think chan should be combined with currentURI and MyReceiver
+    //into one big chunk of state. In here we update it as necessary.
     currentURI=uri;
-    if (channel==null){
-      if (debug(1))
-        System.out.append("CONNECT: ").append(uri.toString()).append("\n");
-      channel=MySiteConnector.connect(elGroup, myReceiver, uri);
+    Channel chan = currChan.getChannel();
+    if (chan==null) {
+      chan=connect(uri);
     }
     else
-    if (!channel.isOpen() || !channel.isActive()) {
-      channel = null;
+    if (!chan.isOpen() || !chan.isActive()) {
+      // wHEN THIS HAPPENS
+      currChan.setChannel(null);
       startRequest(uri);
       return;
     }
@@ -80,7 +94,18 @@ public final class NettySiteCrawler extends SiteCrawler {
     request.headers().set("Accept-Encoding", "gzip, deflate");
     // This does no good:
     //request.headers().set("Accept", "text/*");
-    channel.writeAndFlush(request);
+    chan.writeAndFlush(request);
+  }
+
+  private Channel connect(URI uri) throws Exception {
+    if (debug(1))
+      System.out.append("CONNECT: ").append(uri.toString()).append("\n");
+    Channel chan = MySiteConnector.connect(elGroup, myReceiver, uri);
+    // FIXME the problem is this doesn't get called when the site closes us on its own will.
+    // Really no I'm not kidding.
+    chan.closeFuture().addListener(future -> onClose());
+    currChan.setChannel(chan);
+    return chan;
   }
 
   ////////////////////////////////
@@ -110,14 +135,28 @@ public final class NettySiteCrawler extends SiteCrawler {
       );
     }
     @Override public void body(HttpContent body) throws Exception {
-      pageBody(currentURI, body.content().toString(CharsetUtil.UTF_8));
+      if (!onHead)
+        pageBody(currentURI, body.content().toString(CharsetUtil.UTF_8));
     }
+    /**
+     * The problem here is that we're closing a channel when we may have already
+     * obtained another. This method is on a different thread from other things.
+     */
     @Override public void complete(HttpHeaders trailingHeaders) throws Exception {
       URI temp = currentURI;
       currentURI = null;
-      if (!pageComplete(temp, onHead))
-        channel.close();
+      System.out.flush();
+      if (!pageComplete(temp, onHead)) {
+        Channel chan = currChan.getChannel();
+        if (chan != null)
+          chan.close();
+        else
+          currChan.setChannel(null);
+      }
     }
   };
-
+  private static void flushln(String s) {
+    System.out.println(Thread.currentThread()+s);
+    System.out.flush();
+  }
 }

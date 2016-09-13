@@ -1,8 +1,9 @@
 package org.tmotte.choogle.pagecrawlnetty;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
-import java.util.concurrent.TimeUnit;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import org.tmotte.choogle.pagecrawl.SiteCrawler;
 import org.tmotte.choogle.pagecrawl.WorldCrawler;
 
@@ -21,10 +22,11 @@ public final class NettyWorldCrawler extends WorldCrawler  {
   }
 
   protected @Override SiteCrawler createSiteCrawler(
-      long limit, int debugLevel, boolean cacheResults
+      Consumer<SiteCrawler> whenComplete, long limit, int debugLevel, boolean cacheResults
     ) throws Exception {
-    return new NettySiteCrawler(elGroup, limit, debugLevel, cacheResults);
+    return new NettySiteCrawler(elGroup, whenComplete, limit, debugLevel, cacheResults);
   }
+
   protected @Override void finish(){
     elGroup.shutdownGracefully(0, 0, TimeUnit.MILLISECONDS);
   }

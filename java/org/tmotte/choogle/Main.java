@@ -99,6 +99,7 @@ public class Main {
     long s1=System.currentTimeMillis();
     NettyWorldCrawler.crawl(urls, depth, debugLevel, cacheResults);
     long s2=System.currentTimeMillis();
+    //FIXME prints before completion completed:
     System.out.println(String.format("Completed in %d ms", s2-s1));
     return true;
   }

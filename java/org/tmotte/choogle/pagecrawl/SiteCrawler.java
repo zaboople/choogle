@@ -47,9 +47,9 @@ public abstract class SiteCrawler {
   private int pageSize=0;
   private boolean lastWasRedirect=false;
   private boolean accepted=true;
+  private Consumer<SiteCrawler> callOnComplete;
 
-
-  public SiteCrawler(long limit, int debugLevel, boolean cacheResults){
+  public SiteCrawler(Consumer<SiteCrawler> callOnComplete, long limit, int debugLevel, boolean cacheResults){
     this.debugLevel=debugLevel;
     this.pageParser=new AnchorReader(
       tempLinks,
@@ -59,11 +59,16 @@ public abstract class SiteCrawler {
     );
     this.limit=limit;
     this.cacheResults=cacheResults;
+    this.callOnComplete=callOnComplete;
   }
 
   ///////////////////////
   // SITE-LEVEL API's: //
   ///////////////////////
+
+  public String toString() {
+    return sitehost;
+  }
 
   public final SiteCrawler start(String initialURI) throws Exception {
     return start(getURI(initialURI));
@@ -82,29 +87,32 @@ public abstract class SiteCrawler {
   }
 
   /**
-   * Called after start() to synchronize to completion.
+   * Should perform a HEAD request against the URI and call
+   * pageStart() & pageComplete() accordingly. There is no need
+   * to call pageBody().
    */
-  public abstract void close() throws Exception;
-  public abstract void onClose(Consumer<SiteCrawler> csc) throws Exception;
+  protected abstract void doHead(URI uri) throws Exception;
 
-  public final boolean reconnectIfUnfinished() throws Exception {
-    if (count==1 && lastWasRedirect && scheduled.size()==0 && elsewhere.size()>=1){
-      // Redirect:
-      start(elsewhere.iterator().next());
-      return true;
-    }
-    else
-    if ((count<limit || limit==-1) && scheduled.size() > 0){
-      // Connection dropped:
-      if (uriInFlight != null)
-        start(uriInFlight);
-      else
-        start(scheduled.removeFirst());
-      return true;
-    }
-    else
-      return false;
+  /**
+   * Should perform a GET request against the URI and call
+   * pageStart(), pageBody() & pageComplete() accordingly.
+   */
+  protected abstract void doGet(URI uri) throws Exception;
+
+  /**
+   * This should be called whenever the connection is closed. It will
+   * check to see if we have outstanding work and force a reconnect if so.
+   * Otherwise it will send a message back to the callOnComplete object
+   * (refer to our constructor) saying we are done.
+   *
+   * (callOnComplete is really just WorldCrawler)
+   */
+  protected void onClose() throws Exception {
+    if (!reconnectIfUnfinished())
+      callOnComplete.accept(this);
   }
+
+
 
   ///////////////////////
   // PAGE-LEVEL API'S: //
@@ -117,8 +125,6 @@ public abstract class SiteCrawler {
     doHead(uri);
   }
 
-  protected abstract void doHead(URI uri) throws Exception;
-  protected abstract void doGet(URI uri) throws Exception;
 
   /** Call to the next scheduled URL for the current site. */
   private URI getNext() {
@@ -129,8 +135,9 @@ public abstract class SiteCrawler {
 
   /**
    * Should be called when headers from the server arrive.
-   * @return false if we don't want the data. Ideally, a HEAD request would
-   *   tell us what is coming before a GET to crawl the page.
+   * @return false if we don't want the data. A HEAD request will
+   *   tell us what is coming before a GET to crawl the page, so
+   *   the latter should be expected to return true most of the time.
    */
   public final void pageStart(
       URI currentURI,
@@ -174,7 +181,7 @@ public abstract class SiteCrawler {
 
   /**
    * Should be called when the page is complete.
-   * @return If we want more pages, true.
+   * @return True if we have more work to do and want to keep our connection alive.
    */
   public final boolean pageComplete(URI currentURI, boolean onHead) throws Exception{
     uriInFlight=null;
@@ -183,6 +190,10 @@ public abstract class SiteCrawler {
       return true;
     }
 
+    //FIXME when oracle.com redirects us twice, we record count of 2
+    //and we assume there's no point in trying anymore. But we can fix
+    //this and keep going because read() is our friend. Yeah and we're
+    //on a separate thread BTW.
     count++;
     if (debug(1)) debugPageComplete(currentURI);
     if (count<limit || limit == -1){
@@ -198,8 +209,8 @@ public abstract class SiteCrawler {
           e.printStackTrace();
         }
     }
-    if (debug(1)) debugSiteComplete();
     resetPageParser();
+    if (debug(1)) debugSiteComplete();
     return false;
   }
 
@@ -251,17 +262,30 @@ public abstract class SiteCrawler {
     pageParser.reset();
   }
 
-  private static URI getURI(String uri) throws Exception {
-    URI realURI=Link.getURI(uri);
-    if (realURI==null)
-      throw new RuntimeException("Could not interpret URI: "+uri);
-    return realURI;
+
+  private final boolean reconnectIfUnfinished() throws Exception {
+    if (count==1 && lastWasRedirect && scheduled.size()==0 && elsewhere.size()>=1){
+      // Redirect:
+      start(elsewhere.iterator().next());
+      return true;
+    }
+    else
+    if ((count<limit || limit==-1) && scheduled.size() > 0){
+      // Connection dropped:
+      if (uriInFlight != null)
+        start(uriInFlight);
+      else
+        start(scheduled.removeFirst());
+      return true;
+    }
+    else
+      return false;
   }
 
 
   ///////////////////
   //               //
-  //     DEBUG:    //
+  //     DEBUG:    // FIXME move to another class, or simplify this is exhausting
   //               //
   ///////////////////
 
@@ -312,7 +336,7 @@ public abstract class SiteCrawler {
   private void debugPageComplete(URI currentURI) {
     if (debug(2)) System.out.append("\n  ");
     System.out
-      .append(String.format("%1$tY-%1$tm-%1$td %1$tH:%1$tM:%1$tS ", new java.util.Date()))
+      .append(String.format("%1$tY-%1$tm-%1$td %1$tH:%1$tM:%1$tS ", new java.util.Date())) //FIXME make a datemaker thing god that is gross looking ew
       .append(sitehost).append(" COMPLETE #").append(String.valueOf(count))
       .append(" SIZE: ").append(String.valueOf(pageSize / 1024)).append("K")
       .append(" URI: ").append(currentURI.toString())
@@ -343,4 +367,12 @@ public abstract class SiteCrawler {
       .append("\n");
   }
 
+
+
+  private static URI getURI(String uri) throws Exception {
+    URI realURI=Link.getURI(uri);
+    if (realURI==null)
+      throw new RuntimeException("Could not interpret URI: "+uri);
+    return realURI;
+  }
 }
