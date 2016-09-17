@@ -81,6 +81,7 @@ public final class NettySiteConnection implements SiteConnection {
     request.headers().set(HttpHeaders.Names.HOST, uri.getHost());
     request.headers().set(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
     request.headers().set("Accept-Encoding", "gzip, deflate");
+    request.headers().set("User-Agent", "choogle");
     // This does no good:
     //request.headers().set("Accept", "text/*");
     currChannel.writeAndFlush(request);

@@ -74,6 +74,7 @@ public class SiteCrawler {
   // SITE-LEVEL API's: //
   ///////////////////////
 
+  /** Just prints the host that we're crawling */
   public String toString() {
     return sitehost;
   }
@@ -99,7 +100,9 @@ public class SiteCrawler {
   /**
    * This should be called whenever the connection is closed. It will
    * check to see if we have outstanding work on that connection
-   * and force a reconnect if so.
+   * and force a reconnect if so. The message will be ignored if
+   * SiteCrawler is the one who initiated it.
+   *
    * Otherwise it will send a message back to the callOnComplete object
    * (refer to our constructor) saying we are done.
    *
