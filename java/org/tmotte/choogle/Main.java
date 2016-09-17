@@ -3,7 +3,9 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.tmotte.choogle.pagecrawlnetty.NettyWorldCrawler;
+import org.tmotte.choogle.pagecrawlnetty.NettyConnectionFactory;
+import org.tmotte.choogle.pagecrawl.WorldCrawler;
+
 import org.tmotte.choogle.service.LoadTest;
 import org.tmotte.common.jettyserver.MyJettyServer;
 
@@ -97,7 +99,9 @@ public class Main {
       urls.stream().collect(Collectors.joining(", ")))
     );
     long s1=System.currentTimeMillis();
-    NettyWorldCrawler.crawl(urls, depth, debugLevel, cacheResults);
+    WorldCrawler.crawl(
+      new NettyConnectionFactory(debugLevel), urls, depth, debugLevel, cacheResults
+    );
     long s2=System.currentTimeMillis();
     //FIXME prints before completion completed:
     System.out.println(String.format("Completed in %d ms", s2-s1));

@@ -20,7 +20,7 @@ import java.util.function.Consumer;
  * (one variable), but SiteCrawler is intrinsically designed for not-threadsafe because
  * that's what non-blocking I/O is really all about.
  */
-public abstract class WorldCrawler  {
+public class WorldCrawler  {
 
   //////////////////////////////////
   // PRIVATE STATE & CONSTRUCTOR: //
@@ -29,9 +29,17 @@ public abstract class WorldCrawler  {
   private final long limit;
   private final int debugLevel;
   private final boolean cacheResults;
+  private final SiteConnectionFactory connFactory;
   private SiteCounter siteCounter=new SiteCounter(); // inner class below
 
-  public WorldCrawler(long limit, int debugLevel, boolean cacheResults){
+  public static void crawl(
+      SiteConnectionFactory factory, List<String> uris, long limit, int debugLevel, boolean cacheResults
+    ) throws Exception {
+    new WorldCrawler(factory, limit, debugLevel, cacheResults).crawl(uris);
+  }
+
+  public WorldCrawler(SiteConnectionFactory factory, long limit, int debugLevel, boolean cacheResults){
+    this.connFactory=factory;
     this.limit=limit;
     this.debugLevel=debugLevel;
     this.cacheResults=cacheResults;
@@ -47,29 +55,6 @@ public abstract class WorldCrawler  {
   }
 
 
-  ///////////////////////////////////
-  // Required protected functions: //
-  ///////////////////////////////////
-
-  /**
-   * All of these parameters are "pass-thru" items that should be handed
-   * to the SiteCrawler without interference. One borrowable item, however,
-   * is debugLevel, which can be used as a general indicator for debug noise
-   * as per elsewhere.
-   */
-  protected abstract SiteCrawler createSiteCrawler(
-      Consumer<SiteCrawler> callOnComplete,
-      long limit,
-      int debugLevel,
-      boolean cacheResults
-    ) throws Exception;
-
-  /**
-   * This will be called when all sites have been crawled
-   * and we are ready to shut down.
-   */
-  protected abstract void finish();
-
   ////////////////////////
   // PRIVATE FUNCTIONS: //
   ////////////////////////
@@ -78,7 +63,8 @@ public abstract class WorldCrawler  {
     for (String uri : uris) {
       if (!uri.startsWith("http"))
         uri="http://"+uri;
-      SiteCrawler sc=createSiteCrawler(
+      SiteCrawler sc=new SiteCrawler(
+        connFactory,
         (crawler -> onClose(crawler)),
         limit,
         debugLevel,
@@ -91,7 +77,11 @@ public abstract class WorldCrawler  {
   private void onClose(SiteCrawler sc) {
     siteCounter.siteDone();
     if (siteCounter.done())
-      finish();
+      try {
+        connFactory.finish();
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
   };
 
   private class SiteCounter {
