@@ -18,6 +18,7 @@ import org.tmotte.choogle.pagecrawl.SiteCrawler;
 import org.tmotte.choogle.pagecrawl.SiteConnection;
 import org.tmotte.common.nettyclient.MyResponseReceiver;
 import org.tmotte.common.nettyclient.MySiteConnector;
+import org.tmotte.common.text.Outlog;
 
 /**
  * Note: Test content type acceptance with apache.org, which has lots of PDF's.
@@ -26,7 +27,7 @@ public final class NettySiteConnection implements SiteConnection {
 
   // Rather static:
   private final EventLoopGroup elGroup;
-  private final int debugLevel;
+  private final Outlog log;
   private SiteCrawler crawler;
 
   // Transient:
@@ -35,10 +36,10 @@ public final class NettySiteConnection implements SiteConnection {
   private boolean onHead=true;
 
 
-  public NettySiteConnection(EventLoopGroup elGroup, SiteCrawler crawler, int debugLevel) throws Exception{
+  public NettySiteConnection(EventLoopGroup elGroup, SiteCrawler crawler, Outlog log) throws Exception{
     this.elGroup=elGroup;
     this.crawler=crawler;
-    this.debugLevel=debugLevel;
+    this.log=log;
   }
 
   public @Override void doHead(URI uri) throws Exception {
@@ -88,8 +89,7 @@ public final class NettySiteConnection implements SiteConnection {
   }
 
   private void connect(URI uri) throws Exception {
-    if (debugLevel >= 1)
-      System.out.append("CONNECT: ").append(uri.toString()).append("\n");
+    if (log.is(1)) log.date().add("CONNECT: ").add(uri).lf();
     currChannel = MySiteConnector.connect(elGroup, myReceiver, uri);
     currChannel.closeFuture().addListener(
       future -> {if (crawler!=null) crawler.onClose(this);}
@@ -117,7 +117,7 @@ public final class NettySiteConnection implements SiteConnection {
       boolean closed =
         "CLOSE".equals(connectionStatus) || "close".equals(connectionStatus);
       crawler.pageStart(
-        currentURI,
+        currentURI, onHead,
         statusCode, contentType,
         eTag, lastModified,
         closed, redirected,

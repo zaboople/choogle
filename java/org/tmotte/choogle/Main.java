@@ -3,11 +3,11 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.tmotte.choogle.pagecrawlnetty.NettyConnectionFactory;
 import org.tmotte.choogle.pagecrawl.WorldCrawler;
-
+import org.tmotte.choogle.pagecrawlnetty.NettyConnectionFactory;
 import org.tmotte.choogle.service.LoadTest;
 import org.tmotte.common.jettyserver.MyJettyServer;
+import org.tmotte.common.text.Outlog;
 
 public class Main {
   public static void main(String[] args) throws Exception {
@@ -71,12 +71,17 @@ public class Main {
         //no-op
       }
       else
-      if (args[i].equals("--depth") || args[i].startsWith("-d"))
+      if (args[i].startsWith("--depth") || args[i].startsWith("-d")) {
+          int idnex=args[i].indexOf("=");
+          String toParse=idnex > -1
+            ?args[i].substring(idnex+1, args[i].length())
+            :args[++i];
         try {
-          depth=Long.parseLong(args[++i]);
+          depth=Long.parseLong(toParse);
         } catch (Exception e) {
-          return help("Not an integer: "+args[i]);
+          return help("Not an integer: "+toParse);
         }
+      }
       else
       if (args[i].equals("--verbose") || args[i].startsWith("-v"))
         debugLevel++;
@@ -91,6 +96,7 @@ public class Main {
         break;
       }
 
+    Outlog log=new Outlog().setLevel(debugLevel);
     List<String> urls=java.util.Arrays.asList(args).subList(startURLs, args.length);
     if (urls.size()==0)
       return help("Missing list of URLs");
@@ -100,11 +106,8 @@ public class Main {
     );
     long s1=System.currentTimeMillis();
     WorldCrawler.crawl(
-      new NettyConnectionFactory(debugLevel), urls, depth, debugLevel, cacheResults
+      new NettyConnectionFactory(log), urls, depth, log, cacheResults
     );
-    long s2=System.currentTimeMillis();
-    //FIXME prints before completion completed:
-    System.out.println(String.format("Completed in %d ms", s2-s1));
     return true;
   }
 

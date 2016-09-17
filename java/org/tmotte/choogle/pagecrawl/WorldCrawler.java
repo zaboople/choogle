@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import org.tmotte.common.text.Outlog;
 
 /**
  * Crawls a group of web sites in parallel, waiting for all to finish.
@@ -26,22 +27,23 @@ public class WorldCrawler  {
   // PRIVATE STATE & CONSTRUCTOR: //
   //////////////////////////////////
 
+  private final long startTime=System.currentTimeMillis();
   private final long limit;
-  private final int debugLevel;
+  private final Outlog log;
   private final boolean cacheResults;
   private final SiteConnectionFactory connFactory;
   private SiteCounter siteCounter=new SiteCounter(); // inner class below
 
   public static void crawl(
-      SiteConnectionFactory factory, List<String> uris, long limit, int debugLevel, boolean cacheResults
+      SiteConnectionFactory factory, List<String> uris, long limit, Outlog log, boolean cacheResults
     ) throws Exception {
-    new WorldCrawler(factory, limit, debugLevel, cacheResults).crawl(uris);
+    new WorldCrawler(factory, limit, log, cacheResults).crawl(uris);
   }
 
-  public WorldCrawler(SiteConnectionFactory factory, long limit, int debugLevel, boolean cacheResults){
+  public WorldCrawler(SiteConnectionFactory factory, long limit, Outlog log, boolean cacheResults){
     this.connFactory=factory;
     this.limit=limit;
-    this.debugLevel=debugLevel;
+    this.log=log;
     this.cacheResults=cacheResults;
   }
 
@@ -67,7 +69,7 @@ public class WorldCrawler  {
         connFactory,
         (crawler -> onClose(crawler)),
         limit,
-        debugLevel,
+        log,
         cacheResults
       );
       sc.start(uri);
@@ -78,6 +80,9 @@ public class WorldCrawler  {
     siteCounter.siteDone();
     if (siteCounter.done())
       try {
+        log.date().add(
+          String.format("Completed in %d ms", System.currentTimeMillis()-startTime)
+        );
         connFactory.finish();
       } catch (Exception e) {
         e.printStackTrace();
@@ -92,12 +97,10 @@ public class WorldCrawler  {
     }
     synchronized void siteDone() {
       sitesDone++;
-      if (debugLevel > 1)
-        System.out.append("COMPLETED ")
-          .append(String.valueOf(sitesDone))
-          .append(" OF ")
-          .append(String.valueOf(siteCount))
-          .append(" SITES");
+      if (log.is(1))
+        log.date()
+          .add("COMPLETED ").add(sitesDone)
+          .add(" OF ").add(siteCount).add(" SITES").lf();
     }
     public synchronized boolean done() {
       return siteCount==sitesDone;

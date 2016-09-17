@@ -8,19 +8,19 @@ import java.util.HashSet;
 import java.util.function.Consumer;
 import org.tmotte.choogle.pagecrawl.AnchorReader;
 import org.tmotte.choogle.pagecrawl.Link;
+import org.tmotte.common.text.Outlog;
 
 
 /**
- * //FIXME move debugging prints outside class
- * //FIXME get better timestamping
- * //FIXME test infinite redirect
- * //FIXME test early connection close
- *
+ * Crawls a single web site, following redirects as necessary.
  *
  * Note that this class is not threadsafe and is really intended for use with a non-blocking IO library.
  *
  * Testing note: Apache.org is a great place to test connection close, as they tend to limit
  * connection lifetime.
+ *
+ * FIXME test infinite redirect
+ * FIXME test early connection close
  */
 public class SiteCrawler {
 
@@ -28,9 +28,10 @@ public class SiteCrawler {
   private final SiteConnectionFactory connFactory;
   private final Consumer<SiteCrawler> callOnComplete;
   private final long limit;
-  private final int debugLevel;
   private final boolean cacheResults;
   private final AnchorReader pageParser;
+  private final Outlog log;
+  private final SiteCrawlerDebug debugger=new SiteCrawlerDebug();
 
   // SITE STATE:
   private String sitehost;
@@ -54,20 +55,21 @@ public class SiteCrawler {
       SiteConnectionFactory connFactory,
       Consumer<SiteCrawler> callOnComplete,
       long limit,
-      int debugLevel,
+      Outlog log,
       boolean cacheResults
     ){
     this.connFactory=connFactory;
-    this.debugLevel=debugLevel;
+    this.log=log;
     this.pageParser=new AnchorReader(
       tempLinks,
-      debug(3)
-        ?x -> System.out.print(x)
+      log.is(4)
+        ?x -> log.add(x)
         :null
     );
     this.limit=limit;
     this.cacheResults=cacheResults;
     this.callOnComplete=callOnComplete;
+    debugger.log=log;
   }
 
   ///////////////////////
@@ -84,13 +86,14 @@ public class SiteCrawler {
   }
 
   /**
-   * Starts the crawling process. Calls read(uri).
+   * Starts the crawling process. Calls read(uri). Called by WorldCrawler.
    */
   public final SiteCrawler start(URI initialURI) throws Exception {
     this.sitehost=initialURI.getHost();
     this.sitescheme=initialURI.getScheme();
     this.siteport=initialURI.getPort();
     this.siteConnection=connFactory.get(this, initialURI);
+    debugger.sitehost=sitehost;
     scheduledSet.add(initialURI.getRawPath());
     read(initialURI);
     return this;
@@ -127,6 +130,7 @@ public class SiteCrawler {
    */
   public final void pageStart(
       URI currentURI,
+      boolean onHead,
       int statusCode,
       String contentType,
       String eTag,
@@ -137,11 +141,10 @@ public class SiteCrawler {
     ) throws Exception {
     lastWasSiteRedirect=count==0 && redirected;
     if (lastWasSiteRedirect) siteRedirectCount++;
-    if (debug(2))
-      debugHeaders(
+    if (log.is(2) && onHead)
+      debugger.headers(
         currentURI, statusCode, contentType,
-        eTag, lastModified,
-        closed, redirected,
+        eTag, lastModified, closed, redirected,
         locationHeader
       );
     if (redirected && locationHeader!=null){
@@ -162,7 +165,7 @@ public class SiteCrawler {
   public final void pageBody(URI currentURI, String s) throws Exception{
     if (!pageAccepted) return;
     pageSize+=s.length();
-    if (debug(2)) debugPageBody(s);
+    if (log.is(2)) debugger.pageBody(s);
     pageParser.add(s);
   }
 
@@ -182,7 +185,10 @@ public class SiteCrawler {
     // Check count and print stats:
     if (!lastWasSiteRedirect)
       count++;
-    if (debug(1)) debugPageComplete(currentURI);
+    if (log.is(1))
+      debugger.pageComplete(
+        currentURI, count, pageSize, pageParser.getTitle()
+      );
 
     // Reset page state:
     pageParser.reset();
@@ -201,7 +207,7 @@ public class SiteCrawler {
     }
 
     // Well then close connection:
-    if (debug(1)) debugSiteComplete();
+    if (log.is(1)) debugger.siteComplete(count);
     closeConnection();
     callOnComplete.accept(this);
   }
@@ -211,23 +217,14 @@ public class SiteCrawler {
   // INTERNAL FUNCTIONS: //
   /////////////////////////
 
-  private final boolean debug(int level) {
-    return level <= debugLevel;
-  }
 
   private void read(URI uri) throws Exception {
     uriInFlight=uri;
     pageAccepted=true;
-    debugDoHead(uri);
+    debugger.doHead(uri);
     siteConnection.doHead(uri);
   }
 
-  /** Call to the next scheduled URL for the current site. */
-  private URI getNextForConnection() {
-    return scheduled.size() > 0
-      ?scheduled.removeFirst()
-      :null;
-  }
 
   private void addLinks(URI relativeTo) {
     if (count + scheduled.size()<limit || limit == -1)
@@ -256,8 +253,16 @@ public class SiteCrawler {
         }
         else elsewhere.add(maybe);
       }
+    if (log.is(2))
+      debugger.linkProcessing(count, tempLinks.size(), scheduled.size(), elsewhere.size());
     tempLinks.clear();
-    if (debug(2)) debugLinkProcessing();
+  }
+
+  /** Call to the next scheduled URL for the current site. */
+  private URI getNextForConnection() {
+    return scheduled.size() > 0
+      ?scheduled.removeFirst()
+      :null;
   }
 
   private boolean unfinished() {
@@ -283,17 +288,13 @@ public class SiteCrawler {
   private final boolean followSiteRedirect() throws Exception {
     if (count==0 && lastWasSiteRedirect && scheduled.size()==0 && elsewhere.size()>=1) {
       if (siteRedirectCount > 5){
-        System.out.append(sitehost).append(" TOO MANY REDIRECTS");
+        if (log.is(1)) log.add(sitehost).add(" TOO MANY REDIRECTS");
         return false;
       }
       closeConnection();
       URI newURI=elsewhere.iterator().next();
       elsewhere.clear();
-      if (debug(1))
-        System.out.append(sitehost)
-          .append(" REDIRECTING SITE TO ")
-          .append(newURI.toString())
-          .append("\n");
+      if (log.is(1)) debugger.redirecting(newURI);
       start(newURI);
       return true;
     }
@@ -302,117 +303,18 @@ public class SiteCrawler {
 
   private void closeConnection() throws Exception {
     if (siteConnection!=null) {
-      if (debug(2))
-        System.out.append(sitehost).append(" CLOSING\n");
+      if (log.is(2)) debugger.closing();
       SiteConnection temp=siteConnection;
       siteConnection=null;
       temp.close();
     }
   }
 
-
-  ///////////////////
-  //               //
-  //     DEBUG:    // FIXME move to another class, or simplify this is exhausting
-  //               //
-  ///////////////////
-
-  private void debugDoHead(URI uri) {
-    if (debug(2))
-      System.out
-        .append("\nHEAD: ")
-        .append(uri.toString())
-        .append("\n");
-  }
-  private void debugHeaders(
-      URI currentURI,
-      int statusCode,
-      String contentType,
-      String eTag,
-      String lastModified,
-      boolean closed,
-      boolean redirected,
-      String locationHeader
-    ){
-    System.out.append("  ").append(sitehost)
-      .append(" RESPONSE")
-      .append(" STATUS: ")
-      .append(String.valueOf(statusCode))
-      .append(" CONTENT TYPE: ")
-      .append(contentType);
-    if (eTag!=null)
-      System.out.append(" ETAG: ").append(eTag);
-    if (lastModified !=null)
-      System.out.append(" LAST MODIFIED: ").append(lastModified);
-    if (closed)
-      System.out.append("\n  ")
-        .append(sitehost).append(" CLOSED");
-    if (redirected)
-      System.out
-        .append("\n  ").append(sitehost)
-        .append(" REDIRECT: ").append(locationHeader);
-    System.out.print("\n  ");
-  }
-
-  private void debugPageBody(String s) {
-    if (debug(4))
-      System.out.append("\n>>>").append(s).append("<<<\n");
-    else
-      System.out.append(".");
-  }
-
-  private void debugPageComplete(URI currentURI) {
-    if (debug(2)) System.out.append("\n  ");
-    System.out
-      .append(
-        String.format(
-          "%1$tY-%1$tm-%1$td %1$tH:%1$tM:%1$tS ",//FIXME make a datemaker thing god that is gross looking ew
-          new java.util.Date()
-        )
-      )
-      .append(sitehost).append(" COMPLETE #").append(String.valueOf(count))
-      .append(" SIZE: ").append(String.valueOf(pageSize / 1024)).append("K")
-      .append(" URI: ").append(currentURI.toString())
-      .append(" TITLE: ").append(pageParser.getTitle())
-      .append("\n")
-      ;
-  }
-
-  private void debugLinkProcessing() {
-    if (debug(2))
-      System.out
-        .append("  ").append(sitehost)
-        .append(" RESPONSE COUNT: ").append(String.valueOf(count));
-    if (debug(3))
-      System.out
-        .append(" LINK COUNT: "+tempLinks.size())
-        .append(" SCHEDULED: ").append(String.valueOf(scheduled.size()))
-        .append(" ELSEWHERE: ").append(String.valueOf(elsewhere.size()));
-    if (debug(2))
-      System.out.append("\n");
-  }
-
-  private void debugSiteComplete() {
-    System.out
-      .append(sitehost)
-      .append("  ALL LINKS READ, CLOSING, COUNT: ")
-      .append(String.valueOf(count))
-      .append("\n");
-  }
-
-
-
   private static URI getURI(String uri) throws Exception {
     URI realURI=Link.getURI(uri);
     if (realURI==null)
       throw new RuntimeException("Could not interpret URI: "+uri);
     return realURI;
-  }
-
-
-  private static void flushln(String s) {
-    System.out.println(Thread.currentThread()+s);
-    System.out.flush();
   }
 
 }
