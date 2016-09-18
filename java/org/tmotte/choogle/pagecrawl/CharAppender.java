@@ -1,4 +1,4 @@
 package org.tmotte.choogle.pagecrawl;
-public interface CharAppender {
+interface CharAppender {
   public void append(char c);
 }

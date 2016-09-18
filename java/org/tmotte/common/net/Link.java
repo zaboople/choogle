@@ -1,12 +1,27 @@
-package org.tmotte.choogle.pagecrawl;
+package org.tmotte.common.net;
 import java.net.URI;
 
-
+/**
+ * Just a handy way to resolve funky strings into http/https URI/URL's.
+ */
 public class Link {
 
+  /**
+   * Converts the given String to a url.
+   * @param url A string that hopefully starts with http:// or https://
+   *    or even // but we'll do what we can.
+   */
   public static URI getURI(String url) throws Exception {
     return getURI(null, url);
   }
+  /**
+   * Attempts to resolve a possibly relative URL in the context of
+   * of a web page that provided it; it's okay if it's an absolute
+   * url, however.
+   *
+   * @param base The web page we got this url from.
+   * @param url The partial or complete or relative url we want resolved.
+   */
   public static URI getURI(URI base, String url) throws Exception {
     try {
       if (url.startsWith("https:") || url.startsWith("http:"))
@@ -65,6 +80,8 @@ public class Link {
       path="/";
     return new URI(scheme, null, host, port, path, null, null);
   }
+
+  /** Just for testing things. */
   public static void main(String[] args) throws Exception {
     URI u=null;
     for (String a: args) {

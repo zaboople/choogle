@@ -1,6 +1,11 @@
 package org.tmotte.choogle.pagecrawl;
 import java.net.URI;
 
+/**
+ * Represents a minimal implementation necessary for outgoing requests to crawled sites.
+ * An actual instance will need a reference to SiteCrawler so that it can send messages
+ * about page events, i.e. start, body, end.
+ */
 public interface SiteConnection {
 
   /**

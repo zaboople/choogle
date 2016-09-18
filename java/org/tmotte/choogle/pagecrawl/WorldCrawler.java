@@ -26,12 +26,21 @@ public class WorldCrawler  {
   private final SiteConnectionFactory connFactory;
   private final SiteCounter siteCounter=new SiteCounter(); // inner class below
 
+  /** Convenience shortcut to new SiteCrawler(...).crawl(uris) */
   public static void crawl(
       SiteConnectionFactory factory, List<String> uris, long limit, Outlog log, boolean cacheResults
     ) throws Exception {
     new WorldCrawler(factory, limit, log, cacheResults).crawl(uris);
   }
 
+  /**
+   * Creates a new WorldCrawler.
+   * @param factory Used by SiteCrawlers to obtain connections to sites
+   * @param limit The # of pages to crawl per site.
+   * @param log A logger to be used during crawling.
+   * @param cacheResults Generally should be true; set to false when using choogle to load test a server
+   *   so that we don't run out of memory storing lots of URLs in our cache.
+   */
   public WorldCrawler(SiteConnectionFactory factory, long limit, Outlog log, boolean cacheResults){
     this.connFactory=factory;
     this.limit=limit;
@@ -43,6 +52,11 @@ public class WorldCrawler  {
   // PUBLIC FUNCTIONS: //
   ///////////////////////
 
+  /**
+   * Crawls the given list of URIs; since choogle is non-blocking, this will return immediately.
+   * @param uris The web sites to crawl. Redirects will be followed as necessary, such as when
+   *   foo.org redirects to www.foo.org.
+   */
   public void crawl(List<String> uris) throws Exception {
     siteCounter.add(uris.size());
     start(uris);

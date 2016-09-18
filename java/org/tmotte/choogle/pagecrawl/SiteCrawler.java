@@ -7,7 +7,7 @@ import java.util.Set;
 import java.util.HashSet;
 import java.util.function.Consumer;
 import org.tmotte.choogle.pagecrawl.AnchorReader;
-import org.tmotte.choogle.pagecrawl.Link;
+import org.tmotte.common.net.Link;
 import org.tmotte.common.text.Outlog;
 
 

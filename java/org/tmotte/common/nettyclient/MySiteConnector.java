@@ -28,7 +28,6 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import java.net.URI;
-import org.tmotte.choogle.pagecrawl.Link;
 
 /**
  * Takes a MyResponseReceiver input and connects it to a Channel. When Requests are sent to that
