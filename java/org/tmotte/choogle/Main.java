@@ -9,6 +9,9 @@ import org.tmotte.choogle.service.LoadTest;
 import org.tmotte.common.jettyserver.MyJettyServer;
 import org.tmotte.common.text.Outlog;
 
+/**
+ * Boots either a choogle crawler or a webserver that we use for testing.
+ */
 public class Main {
   public static void main(String[] args) throws Exception {
     boolean handled=false;

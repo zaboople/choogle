@@ -2,6 +2,12 @@ package org.tmotte.choogle.pagecrawl;
 import java.net.URI;
 
 public interface SiteConnection {
+
+  /**
+   * Should close the http connection. This may in turn invoke SiteCrawler.onClose(),
+   * although it is not actually necessary to do so since SiteCrawler is already
+   * aware of the fact.
+   */
   public void close() throws Exception;
 
   /**

@@ -5,11 +5,11 @@ import org.tmotte.common.text.Outlog;
 class SiteCrawlerDebug {
 
   Outlog log;
-  String sitehost;
+  String sitename;
 
   void doHead(URI uri) {
     if (log.is(2))
-      log.lf().date().add(sitehost).add(" HEAD: ").add(uri).lf();
+      log.lf().date().add(sitename).add(" HEAD: ").add(uri).lf();
   }
 
   void headers(
@@ -22,7 +22,7 @@ class SiteCrawlerDebug {
       boolean redirected,
       String locationHeader
     ){
-    log.add("  ").add(sitehost)
+    log.add("  ").add(sitename)
       .add(" RESPONSE")
       .add(" STATUS: ").add(statusCode)
       .add(" CONTENT TYPE: ").add(contentType);
@@ -32,10 +32,10 @@ class SiteCrawlerDebug {
       log.add(" LAST MODIFIED: ").add(lastModified);
     if (closed)
       log.lf()
-        .add("  ").add(sitehost).add(" CLOSED");
+        .add("  ").add(sitename).add(" CLOSED");
     if (redirected)
       log.lf()
-        .add("  ").add(sitehost).add(" REDIRECT: ").add(locationHeader);
+        .add("  ").add(sitename).add(" REDIRECT: ").add(locationHeader);
     log.lf();
     if (log.is(2)) log.add("  ");
   }
@@ -52,7 +52,7 @@ class SiteCrawlerDebug {
     ) {
     if (log.is(2)) log.lf().add("  ");
     else log.date();
-    log.add(sitehost).add(" COMPLETE #").add(count)
+    log.add(sitename).add(" COMPLETE #").add(count)
       .add(" SIZE: ").add(pageSize / 1024).add("K")
       .add(" URI: ").add(currentURI)
       .add(" TITLE: ").add(title)
@@ -65,7 +65,7 @@ class SiteCrawlerDebug {
     ) {
     if (log.is(2))
       log
-        .add("  ").add(sitehost)
+        .add("  ").add(sitename)
         .add(" RESPONSE COUNT: ").add(count);
     if (log.is(3))
       log
@@ -77,16 +77,16 @@ class SiteCrawlerDebug {
   }
 
   void closing() {
-    log.add(sitehost).add(" CLOSING").lf();
+    log.date().add(sitename).add(" CLOSING").lf();
   }
 
   void redirecting(URI newURI) {
-    log.date().add(sitehost).add(" REDIRECTING SITE TO ").add(newURI).lf();
+    log.date().add(sitename).add(" REDIRECTING SITE TO ").add(newURI).lf();
   }
 
   void siteComplete(int count) {
     log.date()
-      .add(sitehost).add(" ALL LINKS READ, CLOSING, COUNT: ").add(count)
+      .add(sitename).add(" ALL LINKS READ, CLOSING, COUNT: ").add(count)
       .lf();
   }
 }

@@ -18,7 +18,6 @@ import org.tmotte.common.text.Outlog;
  *
  * Testing note: Apache.org is a great place to test connection close, as they tend to limit
  * connection lifetime.
- *
  * FIXME test infinite redirect
  * FIXME test early connection close
  */
@@ -26,7 +25,7 @@ public class SiteCrawler {
 
   // NON-CHANGING STATE:
   private final SiteConnectionFactory connFactory;
-  private final Consumer<SiteCrawler> callOnComplete;
+  private final Consumer<SiteCrawler> callOnClose;
   private final long limit;
   private final boolean cacheResults;
   private final AnchorReader pageParser;
@@ -38,6 +37,8 @@ public class SiteCrawler {
   private String sitescheme;
   private int siteport;
   private SiteConnection siteConnection;
+  private String key;
+  private int index=0;
 
   // RAPIDLY CHANGING STATE:
   private final ArrayDeque<URI> scheduled=new ArrayDeque<>(128);
@@ -53,7 +54,7 @@ public class SiteCrawler {
 
   public SiteCrawler(
       SiteConnectionFactory connFactory,
-      Consumer<SiteCrawler> callOnComplete,
+      Consumer<SiteCrawler> callOnClose,
       long limit,
       Outlog log,
       boolean cacheResults
@@ -68,7 +69,7 @@ public class SiteCrawler {
     );
     this.limit=limit;
     this.cacheResults=cacheResults;
-    this.callOnComplete=callOnComplete;
+    this.callOnClose=callOnClose;
     debugger.log=log;
   }
 
@@ -76,44 +77,54 @@ public class SiteCrawler {
   // SITE-LEVEL API's: //
   ///////////////////////
 
-  /** Just prints the host that we're crawling */
-  public String toString() {
-    return sitehost;
-  }
-
-  public final SiteCrawler start(String initialURI) throws Exception {
+  final SiteCrawler start(String initialURI) throws Exception {
     return start(getURI(initialURI));
   }
 
   /**
-   * Starts the crawling process. Calls read(uri). Called by WorldCrawler.
+   * Starts the crawling process. Called by WorldCrawler & internal
+   * crawl restarts.
    */
-  public final SiteCrawler start(URI initialURI) throws Exception {
+  final SiteCrawler start(URI initialURI) throws Exception {
     this.sitehost=initialURI.getHost();
     this.sitescheme=initialURI.getScheme();
     this.siteport=initialURI.getPort();
     this.siteConnection=connFactory.get(this, initialURI);
-    debugger.sitehost=sitehost;
+    this.index++;
+    this.key=sitehost+":"+siteport+"-"+index;
+    debugger.sitename=this.key;
     scheduledSet.add(initialURI.getRawPath());
     read(initialURI);
     return this;
   }
 
+  /** Just prints the host/port/etc that we're crawling */
+  public String toString() {
+    return getConnectionKey();
+  }
 
   /**
-   * This should be called whenever the connection is closed. It will
-   * check to see if we have outstanding work on that connection
-   * and force a reconnect if so. The message will be ignored if
-   * SiteCrawler is the one who initiated it.
+   * This should uniquely identify our connection, i.e.
+   * "host:port-index". Every time we open a new connection
+   * we need to give it a unique key, which is why we add the "-index",
+   * a simple int that is incremented every time we open a connection.
+   */
+  String getConnectionKey() {
+    return key;
+  }
+
+  /**
+   * This should be called by the SiteConnection whenever it detects
+   * a connection close. This method will check to see if we have outstanding
+   * work to do and open a new SiteConnection if so. The message will
+   * usually be ignored if SiteCrawler initiated the close on purpose, due to
+   * completion.
    *
-   * Otherwise it will send a message back to the callOnComplete object
-   * (refer to our constructor) saying we are done.
-   *
-   * (callOnComplete is really just WorldCrawler)
+   * A new connection is opened by actually sending a message back to
+   * WorldCrawler, which will invoke such in a separate Thread.
    */
   public void onClose(SiteConnection sc) throws Exception {
-    if (sc==siteConnection && !reconnectIfUnfinished())
-      callOnComplete.accept(this);
+    callOnClose.accept(this);
   }
 
 
@@ -194,24 +205,50 @@ public class SiteCrawler {
     pageParser.reset();
     pageSize=0;
 
-    // If not finished, crawl more or connect to redirect:
-    if (unfinished()){
+    // If not finished, crawl more:
+    if (lessThanLimit()){
       addLinks(currentURI);
       URI nextURI = getNextForConnection();
       if (nextURI!=null) {
         read(nextURI);
         return; //RETURN
       }
-      if (followSiteRedirect())
-        return;
     }
 
     // Well then close connection:
-    if (log.is(1)) debugger.siteComplete(count);
+    if (!needsReconnect() && log.is(1)) debugger.siteComplete(count);
     closeConnection();
-    callOnComplete.accept(this);
+    callOnClose.accept(this);
   }
 
+  /**
+   * Called by WorldCrawler in a separate thread after we tell it
+   * we've closed the connection
+   */
+  final boolean needsReconnect() {
+    return moreToCrawl() || redirectWaiting();
+  }
+
+  final boolean reconnectIfUnfinished() throws Exception {
+    if (redirectWaiting()) {
+      URI newURI=elsewhere.iterator().next();
+      elsewhere.clear();
+      if (log.is(1)) debugger.redirecting(newURI);
+      start(newURI);
+      return true;
+    }
+    else
+    if (moreToCrawl()){
+      // Connection dropped:
+      if (uriInFlight != null)
+        start(uriInFlight);
+      else
+        start(scheduled.removeFirst());
+      return true;
+    }
+    else
+      return false;
+  }
 
   /////////////////////////
   // INTERNAL FUNCTIONS: //
@@ -265,45 +302,26 @@ public class SiteCrawler {
       :null;
   }
 
-  private boolean unfinished() {
+  private boolean moreToCrawl() {
+    boolean hasMore=lessThanLimit() && scheduled.size()>0;
+    return hasMore;
+  }
+  private boolean redirectWaiting() {
+    boolean maybe=count==0 && lastWasSiteRedirect && scheduled.size()==0 && elsewhere.size()>=1;
+    if (maybe && siteRedirectCount > 5){
+      if (log.is(1)) log.add(sitehost).add(" TOO MANY REDIRECTS");
+      maybe=false;
+    }
+    return maybe;
+  }
+  private boolean lessThanLimit() {
     return limit == -1 || count < limit;
   }
 
-  private final boolean reconnectIfUnfinished() throws Exception {
-    if (followSiteRedirect())
-      return true;
-    else
-    if (unfinished() && scheduled.size() > 0){
-      // Connection dropped:
-      if (uriInFlight != null)
-        start(uriInFlight);
-      else
-        start(scheduled.removeFirst());
-      return true;
-    }
-    else
-      return false;
-  }
-
-  private final boolean followSiteRedirect() throws Exception {
-    if (count==0 && lastWasSiteRedirect && scheduled.size()==0 && elsewhere.size()>=1) {
-      if (siteRedirectCount > 5){
-        if (log.is(1)) log.add(sitehost).add(" TOO MANY REDIRECTS");
-        return false;
-      }
-      closeConnection();
-      URI newURI=elsewhere.iterator().next();
-      elsewhere.clear();
-      if (log.is(1)) debugger.redirecting(newURI);
-      start(newURI);
-      return true;
-    }
-    return false;
-  }
 
   private void closeConnection() throws Exception {
     if (siteConnection!=null) {
-      if (log.is(2)) debugger.closing();
+      if (log.is(1)) debugger.closing();
       SiteConnection temp=siteConnection;
       siteConnection=null;
       temp.close();

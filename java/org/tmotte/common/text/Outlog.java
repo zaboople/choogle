@@ -1,5 +1,11 @@
 package org.tmotte.common.text;
 
+/**
+ * My own homemade logging class. This only logs to System.out, nothing else.
+ * An Outlog client is responsible for deciding whether to make noise; Outlog.is()
+ * tells the client if the desired logging level is acceptable, but the various add()
+ * methods and so forth don't check it.
+ */
 public final class Outlog {
 
   private int level=0;

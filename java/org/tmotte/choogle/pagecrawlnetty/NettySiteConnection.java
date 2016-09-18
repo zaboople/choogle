@@ -60,15 +60,12 @@ public final class NettySiteConnection implements SiteConnection {
   //////////////////////
 
   private void startRequest(URI uri) throws Exception {
-    //FIXME I think chan should be combined with currentURI and MyReceiver
-    //into one big chunk of state. In here we update it as necessary.
     currentURI=uri;
     if (currChannel==null) {
       connect(uri);
     }
     else
     if (!currChannel.isOpen() || !currChannel.isActive()) {
-      // wHEN THIS HAPPENS
       currChannel=null;
       startRequest(uri);
       return;
@@ -128,10 +125,6 @@ public final class NettySiteConnection implements SiteConnection {
       if (!onHead)
         crawler.pageBody(currentURI, body.content().toString(CharsetUtil.UTF_8));
     }
-    /**
-     * The problem here is that we're closing a channel when we may have already
-     * obtained another. This method is on a different thread from other things.
-     */
     @Override public void complete(HttpHeaders trailingHeaders) throws Exception {
       URI temp=currentURI;
       currentURI=null;
