@@ -20,9 +20,6 @@ import org.tmotte.common.nettyclient.MyResponseReceiver;
 import org.tmotte.common.nettyclient.MySiteConnector;
 import org.tmotte.common.text.Outlog;
 
-/**
- * Note: Test content type acceptance with apache.org, which has lots of PDF's.
- */
 public final class NettySiteConnection implements SiteConnection {
 
   // Rather static:
