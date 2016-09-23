@@ -14,12 +14,13 @@ import org.tmotte.common.text.Outlog;
 /**
  * Crawls a single web site, following redirects as necessary.
  *
- * Note that this class is not threadsafe and is really intended for use with a non-blocking IO library.
+ * Note that this class is not threadsafe because it's intended for use with a non-blocking IO library.
  *
  * Testing note: Apache.org is a great place to test connection close, as they tend to limit
- * connection lifetime.
+ * connection lifetime. Also good for testing content types, as they have lots of PDF's and EMF's and
+ * I don't know what's.
+ *
  * FIXME test infinite redirect
- * FIXME test early connection close
  */
 public class SiteCrawler {
 
@@ -28,7 +29,6 @@ public class SiteCrawler {
   private final Consumer<SiteCrawler> callOnClose;
   private final long limit;
   private final boolean cacheResults;
-  private final AnchorReader pageParser;
   private final Outlog log;
   private final SiteCrawlerDebug debugger=new SiteCrawlerDebug();
 
@@ -47,10 +47,13 @@ public class SiteCrawler {
   private final Collection<String> tempLinks=new HashSet<>(128);
   private int count=0;
   private int siteRedirectCount=0;
-  private URI uriInFlight;
-  private int pageSize=0;
   private boolean lastWasSiteRedirect=false;
+
   private boolean pageAccepted=true;
+  private URI uriInFlight;
+
+  private int pageSize=0;
+  private final AnchorReader pageParser;
 
   public SiteCrawler(
       SiteConnectionFactory connFactory,
@@ -208,7 +211,7 @@ public class SiteCrawler {
     // If not finished, crawl more:
     if (lessThanLimit()){
       addLinks(currentURI);
-      URI nextURI = getNextForConnection();
+      URI nextURI=getNextForConnection();
       if (nextURI!=null) {
         read(nextURI);
         return; //RETURN
