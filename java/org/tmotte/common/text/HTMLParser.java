@@ -6,18 +6,19 @@ package org.tmotte.common.text;
  *   <li>Since it only processes one character at a time, it can run with very little memory.
  *   <li>It doesn't know anything about HTML, just tags (open, close & self-closing), attributes,
  *    comments, and cdata.
- * <ul/>
- *
+ * </ul>
+ * </p>
+ * <p>
  * The dirty work must be done by your own listener, which will receives tag/attribute/comment/cdata
  * start/end signals, as well as characters for the data within them.
- *
  * <p>
  * Note that HTMLParser assumes that if your listener: <ul>
  *   <li>isn't interested in the tag name, it isn't interested in attributes.
- *   <li>isn't interested in an attribute name, it isn't interested in the attribute value.</ul>
+ *   <li>isn't interested in an attribute name, it isn't interested in the attribute value.
+ * </ul>
  * The listener will *always* be notified at the beginning & end of a tag, but anytime
  * it loses interest (by returning false) it will stop getting notifications temporarily.
- *
+ * </p>
  */
 public class HTMLParser {
 
