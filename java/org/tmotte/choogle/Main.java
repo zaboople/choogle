@@ -16,8 +16,6 @@ public class Main {
   public static void main(String[] args) throws Exception {
     boolean handled=false;
     String arg0=args.length==0 ?null :args[0];
-    if (args.length==0)
-      help();
     for (int i=0; i<args.length; i++) {
       if (args[i].equals("--help") || args[i].startsWith("-h"))
         handled=help();
@@ -140,7 +138,7 @@ public class Main {
     + "                   -1, depth is unlimited.\n"
     + "      --no-cache:  Do not track URL's already crawled. This is only useful when\n"
     + "                   using the client as a load-tester.\n"
-    + "      urls:        A space-delimited list of url's to start crawling from. \n"
+    + "      <urls>:      A space-delimited list of url's to start crawling from. \n"
     );
     System.err.flush();
     System.out.flush();
