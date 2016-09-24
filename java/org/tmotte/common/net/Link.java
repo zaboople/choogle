@@ -81,6 +81,19 @@ public class Link {
     return new URI(scheme, null, host, port, path, null, null);
   }
 
+  public static boolean sameSite(URI currentURI, URI maybe) {
+    return sameSite(currentURI.getHost(), currentURI.getScheme(), currentURI.getPort(), maybe);
+  }
+  /**
+   * Determines whether a new http connection is needed in order to talk to the new URI.
+   */
+  public static boolean sameSite(String currHost, String currScheme, int currPort, URI maybe) {
+    return
+      maybe.getHost().equals(currHost) &&
+      maybe.getScheme().equals(currScheme) &&
+      maybe.getPort()==currPort;
+  }
+
   /** Just for testing things. */
   public static void main(String[] args) throws Exception {
     URI u=null;
