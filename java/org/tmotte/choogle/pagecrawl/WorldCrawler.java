@@ -19,12 +19,11 @@ public class WorldCrawler  {
   // PRIVATE STATE & CONSTRUCTOR: //
   //////////////////////////////////
 
-  private final long startTime=System.currentTimeMillis();
   private final long limit;
   private final Outlog log;
   private final boolean cacheResults;
   private final SiteConnectionFactory connFactory;
-  private final SiteCounter siteCounter=new SiteCounter(); // inner class below
+  private final SiteWatcher siteWatcher; // inner class below
 
   /** Convenience shortcut to new SiteCrawler(...).crawl(uris) */
   public static void crawl(
@@ -46,6 +45,13 @@ public class WorldCrawler  {
     this.limit=limit;
     this.log=log;
     this.cacheResults=cacheResults;
+    this.siteWatcher=new SiteWatcher(
+      log,
+      ()-> {
+        try {connFactory.finish();}
+        catch (Exception e) {e.printStackTrace();}
+      }
+    );
   }
 
   ///////////////////////
@@ -58,7 +64,7 @@ public class WorldCrawler  {
    *   foo.org redirects to www.foo.org.
    */
   public void crawl(List<String> uris) throws Exception {
-    siteCounter.add(uris.size());
+    siteWatcher.add(uris.size());
     start(uris);
   }
 
@@ -84,126 +90,7 @@ public class WorldCrawler  {
 
   /** Invoked by callback from SiteCrawler on connection close */
   private void onClose(SiteCrawler sc) {
-    logOnClose(sc);
-    siteCounter.siteDone(sc);
+    siteWatcher.siteDone(sc);
   };
-
-  private class SiteCounter implements Runnable { //FIXME needs its own file
-    private List<SiteCrawler> sites=new ArrayList<>(30);
-    private HashSet<Object> already=new HashSet<>();
-    private int siteCount=0;
-    private int sitesDone=0;
-    public SiteCounter() {
-      new Thread(this, "Choogle Watcher Thread").start();
-    }
-    synchronized void add(int more) {
-      siteCount+=more;
-    }
-    synchronized void siteDone(SiteCrawler sc) {
-      Object hashNote=sc.getConnectionKey();
-      if (!already.contains(hashNote)) {
-        already.add(hashNote);
-        sites.add(sc);
-        this.notify();
-      }
-    }
-    public void run() {
-      List<SiteCrawler> recrawls=new ArrayList<SiteCrawler>(5);
-      HashSet<String> alreadyRetried=new HashSet<String>();
-      boolean allDone = false;
-      while (true) {
-
-        synchronized(this) {
-          // Wait for notification from a site:
-          try {this.wait();}
-            catch (InterruptedException e) {
-              e.printStackTrace();
-            }
-
-          // Now schedule recrawls and find out if we're done:
-          for (SiteCrawler sc: sites) {
-            if (log.is(1)) logReconnectCheck(sc);
-            if (!alreadyRetried.contains(sc.getConnectionKey())){
-              alreadyRetried.add(sc.getConnectionKey());
-              if (sc.needsReconnect())
-                recrawls.add(sc);
-              else
-                allDone=incrementDone();
-            }
-          }
-          sites.clear();
-        }
-
-        // Recrawl as asked; if that doesn't happen, it's a failure:
-        for (SiteCrawler sc: recrawls){
-          boolean b=false;
-          try {
-            logReconnect(sc);
-            b=sc.reconnectIfUnfinished();
-          } catch (Exception e) {
-            e.printStackTrace();
-          }
-          if (!b) {
-            logReconnectFail(sc);
-            allDone=incrementDone();
-          }
-        }
-
-        // Reset state:
-        recrawls.clear();
-
-        // Bail if all done:
-        if (allDone) {
-          logDone();
-          try {connFactory.finish();} catch (Exception e) {e.printStackTrace();}
-          return;
-        }
-      }
-    }
-    private synchronized boolean incrementDone() {
-      sitesDone++;
-      logSiteDone(sitesDone, siteCount);
-      return sitesDone==siteCount;
-    }
-  }
-
-  private void logOnClose(SiteCrawler sc) {
-    if (log.is(1))
-      log.date().add(sc.getConnectionKey()).add(" CONNECTION CLOSE DETECTED").lf();
-  }
-  private void logReconnectCheck(SiteCrawler sc) {
-    log.date().add(sc).add(" CHECKING FOR RECONNECT")
-      .lf();
-  }
-  private void logReconnect(SiteCrawler sc) {
-    if (log.is(1))
-      log.date().add(sc).add(" ATTEMPTING RECONNECT/REDIRECT")
-        .lf();
-  }
-  private void logReconnectFail(SiteCrawler sc) {
-    log.date().add("ERROR: Asked for recrawl and didn't: ").add(sc)
-      .lf();
-  }
-  private void logSiteDone(int completed, int count) {
-    if (log.is(1))
-      log.date()
-        .add("COMPLETED ").add(completed)
-        .add(" OF ").add(count).add(" SITES")
-        .lf();
-  }
-  private void logDone() {
-    if (log.is(1))
-      try {
-        log.date()
-          .add(
-            String.format("Completed in %d ms", System.currentTimeMillis()-startTime)
-          )
-          .add("... cleaning up...")
-          .lf();
-      } catch (Exception e) {
-        e.printStackTrace();
-      }
-
-  }
 
 }
