@@ -14,7 +14,7 @@ import io.netty.handler.codec.http.HttpVersion;
 import io.netty.util.CharsetUtil;
 import java.net.URI;
 import java.util.function.Consumer;
-import org.tmotte.choogle.pagecrawl.SiteCrawler;
+import org.tmotte.choogle.pagecrawl.SiteReader;
 import org.tmotte.choogle.pagecrawl.SiteConnection;
 import org.tmotte.common.nettyclient.MyResponseReceiver;
 import org.tmotte.common.nettyclient.MySiteConnector;
@@ -25,7 +25,7 @@ public final class NettySiteConnection implements SiteConnection {
   // Rather static:
   private final EventLoopGroup elGroup;
   private final Outlog log;
-  private SiteCrawler crawler;
+  private SiteReader crawler;
 
   // Transient:
   private Channel currChannel;
@@ -33,7 +33,7 @@ public final class NettySiteConnection implements SiteConnection {
   private boolean onHead=true;
 
 
-  public NettySiteConnection(EventLoopGroup elGroup, SiteCrawler crawler, Outlog log) throws Exception{
+  public NettySiteConnection(EventLoopGroup elGroup, SiteReader crawler, Outlog log) throws Exception{
     this.elGroup=elGroup;
     this.crawler=crawler;
     this.log=log;

@@ -2,14 +2,13 @@ package org.tmotte.choogle.pagecrawl;
 import java.net.URI;
 
 /**
- * Represents a minimal implementation necessary for outgoing requests to crawled sites.
- * An actual instance will need a reference to SiteCrawler so that it can send messages
- * about page events, i.e. start, body, end.
+ * A SiteReader receives page/connection events from a SiteConnection. Both SiteCrawler
+ * & SiteStarter are SiteReaders.
  */
 public interface SiteReader {
 
-  public void onClose(SiteConnection sc) throws Exception;
-  public void pageStart(
+  public void onClose(SiteConnection sc) throws Exception; //FIXME we don't need the SiteConnection being sent to us.
+  public boolean pageStart(
     URI currentURI,
     boolean onHead,
     int statusCode,

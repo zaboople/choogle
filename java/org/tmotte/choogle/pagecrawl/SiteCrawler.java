@@ -12,7 +12,8 @@ import org.tmotte.common.text.Outlog;
 
 
 /**
- * Crawls a single web site, following redirects as necessary.
+ * Crawls a single web site until the connection is closed or the desired number of URLs is crawled.
+ * This does *not* follow redirects.
  *
  * Note that this class is not threadsafe because it's intended for use with a non-blocking IO library.
  *
@@ -20,17 +21,17 @@ import org.tmotte.common.text.Outlog;
  * connection lifetime. Also good for testing content types, as they have lots of PDF's and EMF's and
  * I don't know what's.
  *
- * FIXME test infinite redirect
  */
-public class SiteCrawler {
+class SiteCrawler implements SiteReader {
 
   // NON-CHANGING STATE:
+  private final Outlog log;
   private final SiteConnectionFactory connFactory;
   private final Consumer<SiteCrawler> callOnClose;
   private final long limit;
   private final boolean cacheResults;
-  private final Outlog log;
-  private final SiteCrawlerDebug debugger=new SiteCrawlerDebug();
+  private final SiteCrawlerDebug debugger;
+  private final int index;
 
   // SITE STATE:
   private String sitehost;
@@ -38,42 +39,57 @@ public class SiteCrawler {
   private int siteport;
   private SiteConnection siteConnection;
   private String key;
-  private int index=0;
 
   // RAPIDLY CHANGING STATE:
-  private final ArrayDeque<URI> scheduled=new ArrayDeque<>(128);
-  private final Set<String> scheduledSet=new HashSet<>();
-  private final Set<URI>    elsewhere=new HashSet<>();
-  private final Collection<String> tempLinks=new HashSet<>(128);
-  private int count=0;
-  private int siteRedirectCount=0;
-  private boolean lastWasSiteRedirect=false;
+  private final ArrayDeque<URI> scheduled;
+  private final Set<String> scheduledSet;
+  private final Set<URI>    elsewhere;
+  private int count;
 
+  // ULTRA-RAPIDLY CHANGING STATE:
+  private final AnchorReader pageParser;
+  private final Collection<String> tempLinks=new HashSet<>(128);
   private boolean pageAccepted=true;
   private URI uriInFlight;
-
   private int pageSize=0;
-  private final AnchorReader pageParser;
 
   public SiteCrawler(
-      SiteConnectionFactory connFactory,
-      Consumer<SiteCrawler> callOnClose,
-      long limit,
       Outlog log,
-      boolean cacheResults
+      SiteConnectionFactory connFactory,
+      long limit,
+      Consumer<SiteCrawler> callOnClose,
+      boolean cacheResults,
+      SiteCrawler old
     ){
-    this.connFactory=connFactory;
     this.log=log;
-    this.pageParser=new AnchorReader(
-      tempLinks,
-      log.is(4)
-        ?x -> log.add(x)
-        :null
-    );
+    this.connFactory=connFactory;
     this.limit=limit;
-    this.cacheResults=cacheResults;
     this.callOnClose=callOnClose;
-    debugger.log=log;
+    this.cacheResults=cacheResults;
+    if (old!=null) {
+      this.index=old.index+1;
+      this.count=old.count;
+      this.scheduled=old.scheduled;
+      this.scheduledSet=old.scheduledSet;
+      this.elsewhere=old.elsewhere;
+      this.pageParser=old.pageParser;
+      this.debugger=old.debugger;
+    }
+    else {
+      this.index=1;
+      this.count=0;
+      scheduled=new ArrayDeque<>(128);
+      scheduledSet=new HashSet<>();
+      elsewhere=new HashSet<>();
+      this.pageParser=new AnchorReader(
+        tempLinks,
+        log.is(4)
+          ?x -> log.add(x)
+          :null
+      );
+      debugger=new SiteCrawlerDebug();
+      debugger.log=log;
+    }
   }
 
   ///////////////////////
@@ -93,8 +109,7 @@ public class SiteCrawler {
     this.sitescheme=initialURI.getScheme();
     this.siteport=initialURI.getPort();
     this.siteConnection=connFactory.get(this, initialURI);
-    this.index++;
-    this.key=sitehost+":"+siteport+"-"+index;
+    this.key=sitehost+":"+siteport+"-C"+index;
     debugger.sitename=this.key;
     scheduledSet.add(initialURI.getRawPath());
     read(initialURI);
@@ -116,6 +131,10 @@ public class SiteCrawler {
     return key;
   }
 
+  long getLimit() {
+    return limit;
+  }
+
   /**
    * This should be called by the SiteConnection whenever it detects
    * a connection close. This method will check to see if we have outstanding
@@ -126,7 +145,7 @@ public class SiteCrawler {
    * A new connection is opened by actually sending a message back to
    * WorldCrawler, which will invoke such in a separate Thread.
    */
-  public void onClose(SiteConnection sc) throws Exception {
+  public @Override void onClose(SiteConnection sc) throws Exception {
     callOnClose.accept(this);
   }
 
@@ -142,7 +161,7 @@ public class SiteCrawler {
    *   tell us what is coming before a GET to crawl the page, so
    *   the latter should be expected to return true most of the time.
    */
-  public final void pageStart(
+  public @Override final boolean pageStart(
       URI currentURI,
       boolean onHead,
       int statusCode,
@@ -153,8 +172,6 @@ public class SiteCrawler {
       boolean redirected,
       String locationHeader
     ) throws Exception {
-    lastWasSiteRedirect=count==0 && redirected;
-    if (lastWasSiteRedirect) siteRedirectCount++;
     if (log.is(2) && onHead)
       debugger.headers(
         currentURI, statusCode, contentType,
@@ -163,20 +180,20 @@ public class SiteCrawler {
       );
     if (redirected && locationHeader!=null){
       tempLinks.add(locationHeader);
-      pageAccepted=false;
+      return pageAccepted=false;
     }
     else
-    if (contentType != null && !contentType.startsWith("text"))
-      pageAccepted=false;
+    if (contentType!=null && !contentType.startsWith("text"))
+      return pageAccepted=false;
     else
-      pageAccepted=true; //FIXME why not return a value to say it is, we documented that
+      return pageAccepted=true;
   }
 
   /**
    * Should be called when the body of the page is delivered; can be called
    * incrementally as chunks arrive.
    */
-  public final void pageBody(URI currentURI, String s) throws Exception{
+  public @Override final void pageBody(URI currentURI, String s) throws Exception{
     if (!pageAccepted) return;
     pageSize+=s.length();
     if (log.is(2)) debugger.pageBody(s);
@@ -185,9 +202,8 @@ public class SiteCrawler {
 
   /**
    * Should be called when the page is complete.
-   * @return True if we have more work to do and want to keep our connection alive.
    */
-  public final void pageComplete(URI currentURI, boolean onHead) throws Exception{
+  public @Override final void pageComplete(URI currentURI, boolean onHead) throws Exception{
     uriInFlight=null;
 
     // Move on from head:
@@ -197,8 +213,7 @@ public class SiteCrawler {
     }
 
     // Check count and print stats:
-    if (!lastWasSiteRedirect)
-      count++;
+    count++;
     if (log.is(1))
       debugger.pageComplete(
         currentURI, count, pageSize, pageParser.getTitle()
@@ -219,38 +234,18 @@ public class SiteCrawler {
     }
 
     // Well then close connection:
-    if (!needsReconnect() && log.is(1)) debugger.siteComplete(count);
+    if (!moreToCrawl() && log.is(1)) debugger.siteComplete(count);
     closeConnection();
     callOnClose.accept(this);
   }
 
-  /**
-   * Called by WorldCrawler in a separate thread after we tell it
-   * we've closed the connection
-   */
-  final boolean needsReconnect() {
-    return moreToCrawl() || redirectWaiting();
-  }
 
-  final boolean reconnectIfUnfinished() throws Exception {
-    if (redirectWaiting()) {
-      URI newURI=elsewhere.iterator().next();
-      elsewhere.clear();
-      if (log.is(1)) debugger.redirecting(newURI);
-      start(newURI);
-      return true;
-    }
-    else
-    if (moreToCrawl()){
-      // Connection dropped:
-      if (uriInFlight != null)
-        start(uriInFlight);
-      else
-        start(scheduled.removeFirst());
-      return true;
-    }
-    else
-      return false;
+  final URI getReconnectURI() {
+    if (moreToCrawl())
+      return uriInFlight != null
+        ?uriInFlight
+        :scheduled.removeFirst();
+    return null;
   }
 
   /////////////////////////
@@ -281,9 +276,7 @@ public class SiteCrawler {
 
         // Only crawl it if it's the same host/scheme/port,
         // otherwise you need to go to a different channel.
-        if (maybe.getHost().equals(sitehost) &&
-            maybe.getScheme().equals(sitescheme) &&
-            maybe.getPort()==siteport){
+        if (Link.sameSite(sitehost, sitescheme, siteport, maybe)) {
           String raw = maybe.getRawPath();
           if (!scheduledSet.contains(raw)) {
             scheduled.add(maybe);
@@ -308,14 +301,6 @@ public class SiteCrawler {
   private boolean moreToCrawl() {
     boolean hasMore=lessThanLimit() && scheduled.size()>0;
     return hasMore;
-  }
-  private boolean redirectWaiting() {
-    boolean maybe=count==0 && lastWasSiteRedirect && scheduled.size()==0 && elsewhere.size()>=1;
-    if (maybe && siteRedirectCount > 5){
-      if (log.is(1)) log.add(sitehost).add(" TOO MANY REDIRECTS");
-      maybe=false;
-    }
-    return maybe;
   }
   private boolean lessThanLimit() {
     return limit == -1 || count < limit;

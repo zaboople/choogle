@@ -105,9 +105,13 @@ public class Main {
       "\nCRAWLING URL(S): %s\n",
       urls.stream().collect(Collectors.joining(", ")))
     );
-    long s1=System.currentTimeMillis();
+    NettyConnectionFactory factory=new NettyConnectionFactory(log);
     WorldCrawler.crawl(
-      new NettyConnectionFactory(log), urls, depth, log, cacheResults
+      log, factory, depth, cacheResults, urls,
+      ()-> {
+        try {factory.finish();}
+        catch (Exception e) {e.printStackTrace();}
+      }
     );
     return true;
   }

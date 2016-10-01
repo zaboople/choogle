@@ -5,7 +5,7 @@ import java.net.URI;
 import java.util.concurrent.TimeUnit;
 import org.tmotte.choogle.pagecrawl.SiteConnection;
 import org.tmotte.choogle.pagecrawl.SiteConnectionFactory;
-import org.tmotte.choogle.pagecrawl.SiteCrawler;
+import org.tmotte.choogle.pagecrawl.SiteReader;
 import org.tmotte.common.text.Outlog;
 
 public final class NettyConnectionFactory implements SiteConnectionFactory  {
@@ -16,7 +16,7 @@ public final class NettyConnectionFactory implements SiteConnectionFactory  {
   public NettyConnectionFactory(Outlog log) throws Exception{
     this.log=log;
   }
-  public @Override SiteConnection get(SiteCrawler sc, URI uri) throws Exception {
+  public @Override SiteConnection get(SiteReader sc, URI uri) throws Exception {
     return new NettySiteConnection(elGroup, sc, log);
   }
   public @Override void finish() throws Exception {
