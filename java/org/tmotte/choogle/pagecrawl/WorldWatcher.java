@@ -13,7 +13,7 @@ import org.tmotte.common.text.Outlog;
  * Does most of the work that WorldCrawler should be doing.
  * Hides out in the background and lets WorldCrawler have the glory.
  */
-class SiteWatcher {
+class WorldWatcher {
 
   // Immutable inputs:
   private final Outlog log;
@@ -23,7 +23,7 @@ class SiteWatcher {
 
   // Just for logging:
   private final long startTime=System.currentTimeMillis();
-  private final SiteWatcherDebug debug;
+  private final WorldWatcherDebug debug;
 
   // This is all the synchronous state that we have to be careful with:
   private final List<SiteCrawler> sitesClosed=new ArrayList<>(30);
@@ -34,7 +34,7 @@ class SiteWatcher {
   /**
    * @param callOnAllDone This is really just a reference back to WorldCrawler.
    */
-  SiteWatcher(
+  WorldWatcher(
       Outlog log,
       SiteConnectionFactory factory,
       boolean cacheResults,
@@ -45,7 +45,7 @@ class SiteWatcher {
     this.cacheResults=cacheResults;
     this.callOnAllDone=callOnAllDone;
 
-    debug=new SiteWatcherDebug(log);
+    debug=new WorldWatcherDebug(log);
     new Thread(
       ()->checkCrawlers(), "Choogle Watcher Thread"
     ).start();

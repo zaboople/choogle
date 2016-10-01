@@ -10,10 +10,10 @@ import org.tmotte.common.text.Outlog;
  */
 public class WorldCrawler  {
 
-  // This is mostly just a proxy to SiteWatcher, but SiteWatcher has a lot of
+  // This is mostly just a proxy to WorldWatcher, but WorldWatcher has a lot of
   // synchronized stuff and we don't want it exposed to anyone that might try to
   // use it for locking.
-  private final SiteWatcher siteWatcher;
+  private final WorldWatcher worldWatcher;
 
   /** Convenience shortcut to new SiteCrawler(...).crawl(uris) */
   public static void crawl(
@@ -28,12 +28,13 @@ public class WorldCrawler  {
    * @param factory Used by SiteCrawlers to obtain connections to sites
    * @param cacheResults Generally should be true; set to false when using choogle to load test a server
    *   so that we don't run out of memory storing lots of URLs in our cache.
-   * @param onComplete Called whenever all currently active site crawls come to a standstill.
+   * @param onComplete Called whenever all currently active site crawls are finished. This is mainly for
+   *   cleanup/shutdown; we don't yet have site-by-site callbacks, which is obviously needed (and not hard).
    */
   public WorldCrawler(
       Outlog log, SiteConnectionFactory factory, boolean cacheResults, Runnable onComplete
     ){
-    this.siteWatcher=new SiteWatcher(
+    this.worldWatcher=new WorldWatcher(
       log,
       factory,
       cacheResults,
@@ -48,7 +49,7 @@ public class WorldCrawler  {
    * @param limit The # of pages to crawl per site.
    */
   public void crawl(List<String> uris, long limit) throws Exception {
-    siteWatcher.crawl(uris, limit);
+    worldWatcher.crawl(uris, limit);
   }
 
 }

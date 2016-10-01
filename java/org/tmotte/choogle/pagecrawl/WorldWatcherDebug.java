@@ -2,10 +2,10 @@ package org.tmotte.choogle.pagecrawl;
 import java.net.URI;
 import org.tmotte.common.text.Outlog;
 
-class SiteWatcherDebug {
+class WorldWatcherDebug {
   private final Outlog log;
 
-  SiteWatcherDebug(Outlog log) {
+  WorldWatcherDebug(Outlog log) {
     this.log=log;
   }
 
