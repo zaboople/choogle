@@ -77,16 +77,20 @@ class SiteCrawlerDebug {
   }
 
   void closing() {
-    log.date().add(sitename).add(" CLOSING").lf();
+    if (log.is(1))
+      log.date().add(sitename).add(" CLOSING")
+        .lf();
   }
 
   void redirecting(URI newURI) {
-    log.date().add(sitename).add(" REDIRECTING SITE TO ").add(newURI).lf();
+    log.date().add(sitename).add(" REDIRECTING SITE TO ").add(newURI)
+      .lf();
   }
 
   void siteComplete(int count) {
-    log.date()
-      .add(sitename).add(" ALL LINKS READ, CLOSING, COUNT: ").add(count)
-      .lf();
+    if (log.is(1))
+      log.date()
+        .add(sitename).add(" ALL LINKS READ, CLOSING, COUNT: ").add(count)
+        .lf();
   }
 }

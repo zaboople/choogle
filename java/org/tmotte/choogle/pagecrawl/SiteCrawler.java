@@ -24,34 +24,30 @@ import org.tmotte.common.text.Outlog;
  */
 class SiteCrawler implements SiteReader {
 
-  // NON-CHANGING STATE:
+  // IMMUTABLE STATE:
   private final Outlog log;
   private final SiteConnectionFactory connFactory;
   private final Consumer<SiteCrawler> callOnClose;
-  private final long limit;
-  private final boolean cacheResults;
   private final SiteCrawlerDebug debugger;
   private final int index;
 
-  // SITE STATE:
+  // TECHNICALLY IMMUTABLE CONNECTION STATE:
   private String sitehost;
   private String sitescheme;
   private int siteport;
   private SiteConnection siteConnection;
   private String key;
 
-  // RAPIDLY CHANGING STATE:
-  private final ArrayDeque<URI> scheduled;
-  private final Set<String> scheduledSet;
-  private final Set<URI>    elsewhere;
-  private int count;
+  // RAPIDLY CHANGING SITE STATE:
+  private final SiteState siteState;
 
-  // ULTRA-RAPIDLY CHANGING STATE:
+  // ULTRA-RAPIDLY CHANGING PAGE STATE:
   private final AnchorReader pageParser;
   private final Collection<String> tempLinks=new HashSet<>(128);
   private boolean pageAccepted=true;
   private URI uriInFlight;
   private int pageSize=0;
+  private boolean neverAgain=false;
 
   public SiteCrawler(
       Outlog log,
@@ -63,33 +59,27 @@ class SiteCrawler implements SiteReader {
     ){
     this.log=log;
     this.connFactory=connFactory;
-    this.limit=limit;
     this.callOnClose=callOnClose;
-    this.cacheResults=cacheResults;
     if (old!=null) {
       this.index=old.index+1;
-      this.count=old.count;
-      this.scheduled=old.scheduled;
-      this.scheduledSet=old.scheduledSet;
-      this.elsewhere=old.elsewhere;
-      this.pageParser=old.pageParser;
+      this.siteState=old.siteState;
       this.debugger=old.debugger;
     }
     else {
       this.index=1;
-      this.count=0;
-      scheduled=new ArrayDeque<>(128);
-      scheduledSet=new HashSet<>();
-      elsewhere=new HashSet<>();
-      this.pageParser=new AnchorReader(
-        tempLinks,
-        log.is(4)
-          ?x -> log.add(x)
-          :null
-      );
-      debugger=new SiteCrawlerDebug();
+      this.siteState=new SiteState(limit, cacheResults);
+      this.debugger=new SiteCrawlerDebug();
       debugger.log=log;
     }
+    // I'm not going to reuse page parser because
+    // the old SiteCrawler may still be running
+    // and it's not threadsafe.
+    this.pageParser=new AnchorReader(
+      tempLinks,
+      log.is(4)
+        ?x -> log.add(x)
+        :null
+    );
   }
 
   ///////////////////////
@@ -105,13 +95,16 @@ class SiteCrawler implements SiteReader {
    * crawl restarts.
    */
   final SiteCrawler start(URI initialURI) throws Exception {
+    if (neverAgain)
+      throw new RuntimeException("Should not have restarted "+this);
+    neverAgain=true;
     this.sitehost=initialURI.getHost();
     this.sitescheme=initialURI.getScheme();
     this.siteport=initialURI.getPort();
     this.siteConnection=connFactory.get(this, initialURI);
     this.key=sitehost+":"+siteport+"-C"+index;
     debugger.sitename=this.key;
-    scheduledSet.add(initialURI.getRawPath());
+    siteState.addInitialPath(initialURI.getRawPath());
     read(initialURI);
     return this;
   }
@@ -132,7 +125,7 @@ class SiteCrawler implements SiteReader {
   }
 
   long getLimit() {
-    return limit;
+    return siteState.getLimit();
   }
 
   /**
@@ -213,10 +206,10 @@ class SiteCrawler implements SiteReader {
     }
 
     // Check count and print stats:
-    count++;
+    siteState.addCount();
     if (log.is(1))
       debugger.pageComplete(
-        currentURI, count, pageSize, pageParser.getTitle()
+        currentURI, siteState.getCount(), pageSize, pageParser.getTitle()
       );
 
     // Reset page state:
@@ -224,9 +217,9 @@ class SiteCrawler implements SiteReader {
     pageSize=0;
 
     // If not finished, crawl more:
-    if (lessThanLimit()){
+    if (siteState.lessThanLimit()){
       addLinks(currentURI);
-      URI nextURI=getNextForConnection();
+      URI nextURI=siteState.getNextForConnection();
       if (nextURI!=null) {
         read(nextURI);
         return; //RETURN
@@ -234,17 +227,17 @@ class SiteCrawler implements SiteReader {
     }
 
     // Well then close connection:
-    if (!moreToCrawl() && log.is(1)) debugger.siteComplete(count);
+    if (!siteState.moreToCrawl()) debugger.siteComplete(siteState.getCount());
     closeConnection();
     callOnClose.accept(this);
   }
 
 
   final URI getReconnectURI() {
-    if (moreToCrawl())
+    if (siteState.moreToCrawl())
       return uriInFlight != null
         ?uriInFlight
-        :scheduled.removeFirst();
+        :siteState.getNextForConnection();
     return null;
   }
 
@@ -262,7 +255,7 @@ class SiteCrawler implements SiteReader {
 
 
   private void addLinks(URI relativeTo) {
-    if (count + scheduled.size()<limit || limit == -1)
+    if (siteState.notEnoughURLsForLimit())
       for (String maybeStr: tempLinks) {
         URI maybe=null;
         try {
@@ -276,40 +269,24 @@ class SiteCrawler implements SiteReader {
 
         // Only crawl it if it's the same host/scheme/port,
         // otherwise you need to go to a different channel.
-        if (Link.sameSite(sitehost, sitescheme, siteport, maybe)) {
-          String raw = maybe.getRawPath();
-          if (!scheduledSet.contains(raw)) {
-            scheduled.add(maybe);
-            if (cacheResults)
-              scheduledSet.add(raw);
-          }
-        }
-        else elsewhere.add(maybe);
+        if (Link.sameSite(sitehost, sitescheme, siteport, maybe))
+          siteState.addPath(maybe);
+        else
+          siteState.addElsewhere(maybe);
       }
     if (log.is(2))
-      debugger.linkProcessing(count, tempLinks.size(), scheduled.size(), elsewhere.size());
+      debugger.linkProcessing(
+        siteState.getCount(),
+        tempLinks.size(),
+        siteState.getScheduledSize(),
+        siteState.getElsewhereSize()
+      );
     tempLinks.clear();
   }
 
-  /** Call to the next scheduled URL for the current site. */
-  private URI getNextForConnection() {
-    return scheduled.size() > 0
-      ?scheduled.removeFirst()
-      :null;
-  }
-
-  private boolean moreToCrawl() {
-    boolean hasMore=lessThanLimit() && scheduled.size()>0;
-    return hasMore;
-  }
-  private boolean lessThanLimit() {
-    return limit == -1 || count < limit;
-  }
-
-
   private void closeConnection() throws Exception {
     if (siteConnection!=null) {
-      if (log.is(1)) debugger.closing();
+      debugger.closing();
       SiteConnection temp=siteConnection;
       siteConnection=null;
       temp.close();

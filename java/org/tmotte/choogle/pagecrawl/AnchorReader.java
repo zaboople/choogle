@@ -67,7 +67,7 @@ public final class AnchorReader {
   ///////////////////////
 
   public String getTitle() {
-    return bufTitle.toString();
+    return bufTitle.toString().trim();
   }
   public void add(String s) {
     parser.add(s);

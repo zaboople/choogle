@@ -32,7 +32,6 @@ class WorldWatcher {
   private int sitesDone=0;
 
   /**
-   * @param callOnAllDone This is really just a reference back to WorldCrawler.
    */
   WorldWatcher(
       Outlog log,
@@ -85,12 +84,20 @@ class WorldWatcher {
     debug.siteDone(sitesDone, siteCount);
     return sitesDone==siteCount;
   }
+  private boolean incrementFail(String why) {
+    System.out.println(why);
+    return incrementDone();
+  }
 
   private void checkCrawlers() {
     // We will just about but not necessarily always get 2 calls
     // on connection close, so we store a reference to keep us
     // clued in.
-    HashSet<String> alreadyRetried=new HashSet<String>();
+    HashSet<String>
+      alreadyRetried=new HashSet<>(),
+      alreadySetup=new HashSet<>(),
+      alreadyRedirected=new HashSet<>();
+
     List<SiteData>
       redirects=new ArrayList<>(5),
       recrawls=new ArrayList<>(5);
@@ -106,22 +113,25 @@ class WorldWatcher {
 
         // Now schedule redirects and find out if we're done:
         for (SiteStarter ss: siteStarts) {
-          String key=ss.getConnectionKey();
-          if (!alreadyRetried.contains(key)){
-            alreadyRetried.add(key);
-            URI
-              redirectURI=ss.getRedirectURI(),
+          URI redirectURI=ss.getRedirectURI(),
               currentURI=ss.getCurrentURI();
-            if (redirectURI!=null)
+          if (redirectURI!=null) {
+            String key=redirectURI.toString();
+            if (!alreadyRedirected.contains(key)) {
+              alreadyRedirected.add(key);
               redirects.add(new SiteData(redirectURI, ss.getLimit()));
-            else
-            if (currentURI!=null)
-              recrawls.add(new SiteData(currentURI, ss.getLimit()));
-            else {
-              System.out.println("COULD NOT FIND SITE FOR "+key);
-              allDone=incrementDone();
             }
           }
+          else
+          if (currentURI!=null) {
+            String key=currentURI.toString();
+            if (!alreadySetup.contains(key)){
+              alreadySetup.add(key);
+              recrawls.add(new SiteData(currentURI, ss.getLimit()));
+            }
+          }
+          else
+            allDone=incrementFail("COULD NOT FIND SITE FOR "+ss);
         }
         siteStarts.clear();
 
@@ -189,6 +199,9 @@ class WorldWatcher {
       this.uri=uri;
       this.limit=limit;
       this.oldCrawler=oldCrawler;
+    }
+    public String toString() {
+      return uri.toString();
     }
   }
 
