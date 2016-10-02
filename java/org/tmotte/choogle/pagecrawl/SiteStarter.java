@@ -12,16 +12,18 @@ import org.tmotte.common.text.Outlog;
 
 
 /**
- * The idea is to follow all the redirects so that we can start kicking hard.
+ * The idea is to follow all the redirects to different domains and/or http vs. https first.
+ * Once that is complete, the remaining work of actually crawling the whole site is handed to
+ * SiteCrawler; we let WorldWatcher manage that handoff.
  */
 class SiteStarter implements SiteReader{
 
   // NON-CHANGING STATE:
   private final Outlog log;
   private final SiteConnectionFactory connFactory;
-  private final long limit;
+  private final SiteState siteState;
   private final Consumer<SiteStarter> callOnClose;
-  private final SiteCrawlerDebug debugger=new SiteCrawlerDebug();
+  private final SiteCrawlerDebug debugger;
 
   // SITE STATE:
   private String sitehost;
@@ -38,14 +40,20 @@ class SiteStarter implements SiteReader{
   private boolean lastWasSiteRedirect=false;
   private URI uriInFlight;
 
-  public SiteStarter(
-      Outlog log, SiteConnectionFactory connFactory, long limit, Consumer<SiteStarter> callOnClose
+  /**
+   * @param limit This is really just a passthru variable; the real user
+   *    is the SiteCrawler that jumps in after us.
+   * @param connsPer Same deal as with limit.
+   */
+  SiteStarter(
+      Outlog log, SiteConnectionFactory connFactory,
+      SiteState siteState, Consumer<SiteStarter> callOnClose
     ){
     this.log=log;
     this.connFactory=connFactory;
-    this.limit=limit;
+    this.siteState=siteState;
     this.callOnClose=callOnClose;
-    debugger.log=log;
+    this.debugger=new SiteCrawlerDebug(log);
   }
 
   ///////////////////////
@@ -88,8 +96,8 @@ class SiteStarter implements SiteReader{
   String getConnectionKey() {
     return key;
   }
-  long getLimit() {
-    return limit;
+  SiteState getSiteState() {
+    return siteState;
   }
   URI getRedirectURI() {
     return redirectTo;

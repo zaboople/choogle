@@ -17,13 +17,16 @@ class SiteState {
   private final int limit;
   private final boolean cacheResults;
 
+  private final AtomicInteger maxIndex=new AtomicInteger(0);
   private final AtomicInteger count=new AtomicInteger(0);
+  private final AtomicInteger connsAllowedRemaining;
   private final Queue<URI> scheduled;
   private final Set<String> scheduledSet;
   private final Set<URI>    elsewhere;
 
-  SiteState(long limit, boolean cacheResults) {
+  SiteState(long limit, int connsPer, boolean cacheResults) {
     this.limit=(int)limit;
+    this.connsAllowedRemaining=new AtomicInteger(connsPer);
     scheduled=new ConcurrentLinkedQueue<URI>();
     scheduledSet=ConcurrentHashMap.newKeySet(this.limit);
     elsewhere   =ConcurrentHashMap.newKeySet(this.limit);
@@ -36,7 +39,9 @@ class SiteState {
   int getCount()  {return count.get();}
   int getScheduledSize() {return scheduled.size();}
   int getElsewhereSize() {return elsewhere.size();}
-
+  int getNextIndex() {return maxIndex.incrementAndGet();}
+  boolean moreConnsAllowed() {return connsAllowedRemaining.getAndDecrement()>1;}
+  void moreConnsFailed() {connsAllowedRemaining.incrementAndGet();}
 
   // Simple adds:
   void addCount() {count.incrementAndGet();}

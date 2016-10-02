@@ -10,8 +10,14 @@ import java.util.function.Consumer;
 import org.tmotte.common.text.Outlog;
 
 /**
- * Does most of the work that WorldCrawler should be doing.
- * Hides out in the background and lets WorldCrawler have the glory.
+ * Does most of the work that WorldCrawler should be doing, but hides out in the
+ * background so WorldCrawler can have the glory.
+ *
+ * Manages the SiteStarters that find the actual web site, and the SiteCrawlers that
+ * crawl it. We found that Netty is very fussy about opening connections from a thread
+ * that receives a connection close event (throws an exception about making a blocking call), and is
+ * also somewhat unreliable about connection close events, so WorldWatcher maintains a lone independent
+ * thread that receives events from SiteStarter/Crawler and tells them to reconnect as necessary.
  */
 class WorldWatcher {
 
@@ -31,8 +37,6 @@ class WorldWatcher {
   private int siteCount=0;
   private int sitesDone=0;
 
-  /**
-   */
   WorldWatcher(
       Outlog log,
       SiteConnectionFactory factory,
@@ -49,12 +53,17 @@ class WorldWatcher {
       ()->checkCrawlers(), "Choogle Watcher Thread"
     ).start();
   }
-  void crawl(List<String> uris, long limit) throws Exception {
+
+  void crawl(List<String> uris, long limit, int connsPer) throws Exception {
     addToCount(uris.size());
     for (String uri : uris){
       if (!uri.startsWith("http"))
         uri="http://"+uri;
-      new SiteStarter(log, connFactory, limit, this::siteStartStopped).start(uri);
+      new SiteStarter(
+        log, connFactory,
+        new SiteState(limit, connsPer, cacheResults),
+        this::siteStartStopped
+      ).start(uri);
     }
   }
 
@@ -89,6 +98,24 @@ class WorldWatcher {
     return incrementDone();
   }
 
+
+  /** We store these in our internal redirect & recrawl lists to let us know what to connect/reconnect to */
+  private static class SiteData {
+    URI uri;
+    SiteState siteState;
+    public SiteData(URI uri, long limit, int connsPer, boolean cacheResults) {
+      this(uri, new SiteState(limit, connsPer, cacheResults));
+    }
+    public SiteData(URI uri, SiteState siteState) {
+      this.uri=uri;
+      this.siteState=siteState;
+    }
+    public String toString() {
+      return uri.toString();
+    }
+  }
+
+
   private void checkCrawlers() {
     // We will just about but not necessarily always get 2 calls
     // on connection close, so we store a reference to keep us
@@ -119,7 +146,7 @@ class WorldWatcher {
             String key=redirectURI.toString();
             if (!alreadyRedirected.contains(key)) {
               alreadyRedirected.add(key);
-              redirects.add(new SiteData(redirectURI, ss.getLimit()));
+              redirects.add(new SiteData(redirectURI, ss.getSiteState()));
             }
           }
           else
@@ -127,7 +154,7 @@ class WorldWatcher {
             String key=currentURI.toString();
             if (!alreadySetup.contains(key)){
               alreadySetup.add(key);
-              recrawls.add(new SiteData(currentURI, ss.getLimit()));
+              recrawls.add(new SiteData(currentURI, ss.getSiteState()));
             }
           }
           else
@@ -143,7 +170,7 @@ class WorldWatcher {
           if (!alreadyRetried.contains(key)){
             alreadyRetried.add(key);
             if (uri!=null)
-              recrawls.add(new SiteData(uri, sc.getLimit(), sc));
+              recrawls.add(new SiteData(uri, sc.getSiteState()));
             else
               allDone=incrementDone();
           }
@@ -170,7 +197,7 @@ class WorldWatcher {
       try {
         debug.redirect(redirect.uri);
         new SiteStarter(
-          log, connFactory, redirect.limit, this::siteStartStopped
+          log, connFactory, redirect.siteState, this::siteStartStopped
         ).start(redirect.uri);
       } catch (Exception e) {
         e.printStackTrace();
@@ -178,7 +205,7 @@ class WorldWatcher {
     for (SiteData recrawl: recrawls)
       try {
         new SiteCrawler(
-          log, connFactory, recrawl.limit, this::siteClosed, cacheResults, recrawl.oldCrawler
+          log, connFactory, recrawl.siteState, this::siteClosed
         ).start(recrawl.uri);
       } catch (Exception e) {
         e.printStackTrace();
@@ -188,21 +215,5 @@ class WorldWatcher {
     recrawls.clear();
   }
 
-  private static class SiteData {
-    URI uri;
-    long limit;
-    SiteCrawler oldCrawler;
-    public SiteData(URI uri, long limit) {
-      this(uri, limit, null);
-    }
-    public SiteData(URI uri, long limit, SiteCrawler oldCrawler) {
-      this.uri=uri;
-      this.limit=limit;
-      this.oldCrawler=oldCrawler;
-    }
-    public String toString() {
-      return uri.toString();
-    }
-  }
 
 }

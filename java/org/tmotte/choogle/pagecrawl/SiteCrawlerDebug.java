@@ -7,6 +7,8 @@ class SiteCrawlerDebug {
   Outlog log;
   String sitename;
 
+  SiteCrawlerDebug(Outlog log) {this.log=log;}
+
   void doHead(URI uri) {
     if (log.is(2))
       log.lf().date().add(sitename).add(" HEAD: ").add(uri).lf();

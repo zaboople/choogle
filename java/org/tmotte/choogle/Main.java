@@ -23,7 +23,7 @@ public class Main {
       if (args[i].equals("--server") || args[i].startsWith("-s"))
         handled=runServer(args);
       else
-      if (args[i].equals("--client") || args[i].startsWith("-c"))
+      if (args[i].equals("--client") || args[i].startsWith("-cl"))
         handled=runClient(args);
     }
     if (!handled)
@@ -65,20 +65,33 @@ public class Main {
     int debugLevel=0;
     long depth=1;
     boolean cacheResults=true;
+    int connsPerSite=1;
 
     int startURLs=0;
     for (int i=0; i<args.length; i++)
-      if (args[i].equals("--client") || args[i].startsWith("-c")){
+      if (args[i].equals("--client") || args[i].startsWith("-cl")){
         //no-op
       }
       else
       if (args[i].startsWith("--depth") || args[i].startsWith("-d")) {
-          int idnex=args[i].indexOf("=");
-          String toParse=idnex > -1
-            ?args[i].substring(idnex+1, args[i].length())
-            :args[++i];
+        int idnex=args[i].indexOf("=");
+        String toParse=idnex > -1
+          ?args[i].substring(idnex+1, args[i].length())
+          :args[++i];
         try {
           depth=Long.parseLong(toParse);
+        } catch (Exception e) {
+          return help("Not an integer: "+toParse);
+        }
+      }
+      else
+      if (args[i].startsWith("--conns") || args[i].startsWith("-co")){
+        int idnex=args[i].indexOf("=");
+        String toParse=idnex > -1
+          ?args[i].substring(idnex+1, args[i].length())
+          :args[++i];
+        try {
+          connsPerSite=Integer.parseInt(toParse);
         } catch (Exception e) {
           return help("Not an integer: "+toParse);
         }
@@ -107,11 +120,12 @@ public class Main {
     );
     NettyConnectionFactory factory=new NettyConnectionFactory(log);
     WorldCrawler.crawl(
-      log, factory, depth, cacheResults, urls,
+      log, factory, cacheResults,
       ()-> {
         try {factory.finish();}
         catch (Exception e) {e.printStackTrace();}
-      }
+      },
+      urls, depth, connsPerSite
     );
     return true;
   }
@@ -130,25 +144,26 @@ public class Main {
     a.append(
       "\n"
     + "  Usage : java org.tmotte.choogle.Main \\\n "
-    + "       < --help | --server | --client [--verbose] [--depth <number>] [--no-cache] <urls>> \n"
+    + "       < --help | --server | --client [--verbose] [--depth=<#>] [--no-cache] [--conns-per-site=<#>] <urls>> \n"
     + "  Parameters:\n"
     + "    --help:      Print this message\n"
     + "    --server:    Start up server\n"
-    + "      --verbose:   Debugging information. Specify more than once for even more debugging. \n"
-    + "      --db:        Do things with a database\n"
+    + "      --verbose:        Debugging information. Specify more than once for even more debugging. \n"
+    + "      --db:             Do things with a database.\n"
     + "    --client:    If no url's are given they will be read from stdin\n"
-    + "      --verbose:   Debugging information. Specify more than once for even more debugging. \n"
-    + "      --depth:     Number of site URL's to traverse before walking away. If <number> is \n"
-    + "                   -1, depth is unlimited.\n"
-    + "      --no-cache:  Do not track URL's already crawled. This is only useful when\n"
-    + "                   using the client as a load-tester.\n"
-    + "      <urls>:      A space-delimited list of url's to start crawling from. \n"
+    + "      --verbose:        Debugging information. Specify more than once for even more debugging. \n"
+    + "      --depth:          Number of site URL's to traverse before walking away. If <#> is \n"
+    + "                        -1, depth is unlimited. Default is 1. \n"
+    + "      --conns-per-site: Number of connections per site. Default is 1. \n"
+    + "      --no-cache:       Do not track URL's already crawled. This is only useful when\n"
+    + "                        using the client as a load-tester.\n"
+    + "    <urls>:             A space-delimited list of url's to start crawling from. \n"
     );
     System.err.flush();
     System.out.flush();
     if (error!=null)
       System.exit(1);
-    return false;
+    return true;
   }
 
 }

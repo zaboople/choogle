@@ -17,9 +17,15 @@ public class WorldCrawler  {
 
   /** Convenience shortcut to new SiteCrawler(...).crawl(uris) */
   public static void crawl(
-      Outlog log, SiteConnectionFactory factory, long limit, boolean cacheResults, List<String> uris, Runnable onComplete
+      Outlog log,
+      SiteConnectionFactory factory,
+      boolean cacheResults,
+      Runnable onComplete,
+      List<String> uris,
+      long limit,
+      int connsPer
     ) throws Exception {
-    new WorldCrawler(log, factory, cacheResults, onComplete).crawl(uris, limit);
+    new WorldCrawler(log, factory, cacheResults, onComplete).crawl(uris, limit, connsPer);
   }
 
   /**
@@ -47,9 +53,10 @@ public class WorldCrawler  {
    * @param uris The web sites to crawl. Redirects will be followed as necessary, such as when
    *   foo.org redirects to www.foo.org, http to https, etc.
    * @param limit The # of pages to crawl per site.
+   * @param connsPer The number of connections to use simultaneously per site crawled.
    */
-  public void crawl(List<String> uris, long limit) throws Exception {
-    worldWatcher.crawl(uris, limit);
+  public void crawl(List<String> uris, long limit, int connsPer) throws Exception {
+    worldWatcher.crawl(uris, limit, connsPer);
   }
 
 }

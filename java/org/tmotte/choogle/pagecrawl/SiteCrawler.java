@@ -48,32 +48,26 @@ class SiteCrawler implements SiteReader {
   private URI uriInFlight;
   private int pageSize=0;
   private boolean neverAgain=false;
+  private boolean moreConnsAllowed=true;
 
   public SiteCrawler(
       Outlog log,
       SiteConnectionFactory connFactory,
-      long limit,
-      Consumer<SiteCrawler> callOnClose,
-      boolean cacheResults,
-      SiteCrawler old
+      SiteState siteState,
+      Consumer<SiteCrawler> callOnClose
     ){
     this.log=log;
     this.connFactory=connFactory;
     this.callOnClose=callOnClose;
-    if (old!=null) {
-      this.index=old.index+1;
-      this.siteState=old.siteState;
-      this.debugger=old.debugger;
-    }
-    else {
-      this.index=1;
-      this.siteState=new SiteState(limit, cacheResults);
-      this.debugger=new SiteCrawlerDebug();
-      debugger.log=log;
-    }
-    // I'm not going to reuse page parser because
-    // the old SiteCrawler may still be running
-    // and it's not threadsafe.
+
+    // Copy some things from parent crawler:
+    this.siteState=siteState;
+    this.index=siteState.getNextIndex();
+
+    // Non-reuseable stuff:
+    // 1. debugger needs a key that is instance-specific (handled later on)
+    // 2. pageParser is not thread-safe:
+    this.debugger=new SiteCrawlerDebug(this.log);
     this.pageParser=new AnchorReader(
       tempLinks,
       log.is(4)
@@ -124,8 +118,8 @@ class SiteCrawler implements SiteReader {
     return key;
   }
 
-  long getLimit() {
-    return siteState.getLimit();
+  SiteState getSiteState() {
+    return siteState;
   }
 
   /**
@@ -222,6 +216,13 @@ class SiteCrawler implements SiteReader {
       URI nextURI=siteState.getNextForConnection();
       if (nextURI!=null) {
         read(nextURI);
+        if (moreConnsAllowed && siteState.getScheduledSize()>10 && (moreConnsAllowed=siteState.moreConnsAllowed())){
+          nextURI=siteState.getNextForConnection();
+          if (nextURI==null)
+            siteState.moreConnsFailed();// Very very rare
+          else
+            new SiteCrawler(log, connFactory, siteState, callOnClose).start(nextURI);
+        }
         return; //RETURN
       }
     }

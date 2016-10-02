@@ -6,7 +6,7 @@ import org.tmotte.common.text.StringMatcher;
 import org.tmotte.common.text.StringMatcherStatic;
 import org.tmotte.common.text.StringMatcherChars;
 
-public final class AnchorReader {
+public final class AnchorReader { //FIXME why public?
 
   /////////////////////////////////////
   // STATIC VARIABLES AND FUNCTIONS: //
