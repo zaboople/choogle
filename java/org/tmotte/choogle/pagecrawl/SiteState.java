@@ -50,10 +50,15 @@ class SiteState {
 
   // Various ways of asking if we've crawled enough yet:
   boolean notEnoughURLsForLimit(){
-    return limit == -1 || getCount() + scheduled.size() < limit;
+    if (!cacheResults)
+      return scheduled.size() < 500;
+    else
+      return limit == -1 ||
+        getCount() + scheduled.size() < limit;
   }
   boolean lessThanLimit() {
-    return limit == -1 || getCount() < limit;
+    return limit == -1
+      || getCount() < limit;
   }
   boolean moreToCrawl() {
     return lessThanLimit() && scheduled.size()>0;

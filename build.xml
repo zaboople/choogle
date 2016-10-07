@@ -114,8 +114,6 @@
 
   <target name="dist" depends="_dist.src,_dist.bin"/>
 
-
-
   <target name="_dist.bin" depends="jar">
     <mkdir dir ="${dist.dir}/bin"/>
     <copy file="dist/${appname}.jar"   tofile="${dist.dir}/bin/${appname.version}.jar"/>
