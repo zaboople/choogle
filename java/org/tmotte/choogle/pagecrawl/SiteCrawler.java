@@ -36,7 +36,8 @@ class SiteCrawler implements SiteReader {
   private String sitescheme;
   private int siteport;
   private SiteConnection siteConnection;
-  private String key;
+  private String crawlKey;
+  private String siteKey;
 
   // RAPIDLY CHANGING SITE STATE:
   private final SiteState siteState;
@@ -65,7 +66,7 @@ class SiteCrawler implements SiteReader {
     this.index=siteState.getNextIndex();
 
     // Non-reuseable stuff:
-    // 1. debugger needs a key that is instance-specific (handled later on)
+    // 1. debugger needs a crawlKey that is instance-specific (handled later on)
     // 2. pageParser is not thread-safe:
     this.debugger=new SiteCrawlerDebug(this.log);
     this.pageParser=new AnchorReader(
@@ -96,8 +97,9 @@ class SiteCrawler implements SiteReader {
     this.sitescheme=initialURI.getScheme();
     this.siteport=initialURI.getPort();
     this.siteConnection=connFactory.get(this, initialURI);
-    this.key=sitehost+":"+siteport+"-C"+index;
-    debugger.sitename=this.key;
+    this.siteKey=sitehost+":"+siteport;
+    this.crawlKey=siteKey+"-C"+index;
+    debugger.sitename=this.crawlKey;
     siteState.addInitialPath(initialURI.getRawPath());
     read(initialURI);
     return this;
@@ -115,9 +117,17 @@ class SiteCrawler implements SiteReader {
    * a simple int that is incremented every time we open a connection.
    */
   String getConnectionKey() {
-    return key;
+    return crawlKey;
   }
-
+  /**
+   * Uniquely identify the site by host + port
+   */
+  String getSiteKey() {
+    return siteKey;
+  }
+  /**
+   * A shareable object representing the crawl state of the site.
+   */
   SiteState getSiteState() {
     return siteState;
   }

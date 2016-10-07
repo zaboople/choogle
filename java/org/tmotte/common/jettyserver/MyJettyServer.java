@@ -12,12 +12,13 @@ public class MyJettyServer {
    * @param myHandler
    *   The MyHandler that will receive request/response objects with
    *   all the headers and good stuff like a traditional servlet.
-   * @param async FIXME
-   *   If > 0, will try to take advantage of the new Servlet "asynchronous" specification.
-   *   Requests will be forked off into a separate thread pool of our own devising. Not
-   *   necessarily useful, but interesting.
    * @param port
    *   Just the port we want to listen on. HTTPS not supported sorry.
+   * @param asyncPoolSize
+   *   If > 0, will try to take advantage of the new Servlet "asynchronous" specification.
+   *   Requests will be forked off into a separate thread pool of our own devising. Not
+   *   necessarily useful, but interesting. NOTE: We have recently seen that this
+   *   can cause problems under heavy request load - race conditions cause an internal error.
    */
   public static void serve(MyHandler myHandler, int port, int asyncPoolSize) throws Exception  {
     Server server = new Server(port);

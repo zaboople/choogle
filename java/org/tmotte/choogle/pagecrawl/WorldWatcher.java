@@ -123,7 +123,8 @@ class WorldWatcher {
     HashSet<String>
       alreadyRetried=new HashSet<>(),
       alreadySetup=new HashSet<>(),
-      alreadyRedirected=new HashSet<>();
+      alreadyRedirected=new HashSet<>(),
+      alreadyDone=new HashSet<>();
 
     List<SiteData>
       redirects=new ArrayList<>(5),
@@ -172,7 +173,10 @@ class WorldWatcher {
             if (uri!=null)
               recrawls.add(new SiteData(uri, sc.getSiteState()));
             else
+            if (!alreadyDone.contains(sc.getSiteKey())) {
+              alreadyDone.add(sc.getSiteKey());
               allDone=incrementDone();
+            }
           }
         }
         sitesClosed.clear();

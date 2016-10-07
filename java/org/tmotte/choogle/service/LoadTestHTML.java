@@ -10,13 +10,13 @@ import java.util.Random;
 public class LoadTestHTML {
 
   private Random random=new java.util.Random(System.currentTimeMillis());
+  private boolean extras=true;
 
   public void makeContent(Appendable buffer, Exception parseFail, long index) {
     try {
 
-      String
-        indexStr=String.valueOf(index),
-        nextIndexStr=String.valueOf(index-1);
+      String indexStr=String.valueOf(index);
+      long nextIndex=index-1;
 
       // Start up:
       buffer
@@ -39,17 +39,29 @@ public class LoadTestHTML {
 
       // Next number:
       buffer.append("<h3>What else?</h3>");
-      if (index > 0)
-        buffer.append("Oh yeah: <a href=\"/")
-          .append(nextIndexStr)
-          .append("\">Next number: ")
-          .append(nextIndexStr)
-          .append("</a>");
+      if (index > 0) {
+        buffer.append("Oh yeah: ");
+        addNumber(buffer, nextIndex);
+        if (extras)
+          for (int i=0; i<7; i++) {
+            buffer.append("<br>");
+            addNumber(buffer, random.nextLong());
+          }
+      }
       buffer.append("<br></body></html>");
 
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
+  }
+  private void addNumber(Appendable buffer, long index) throws Exception {
+    index=Math.abs(index);
+    final String s=String.valueOf(index);
+    buffer.append("<a href=\"/")
+          .append(s)
+          .append("\">Index: ")
+          .append(s)
+          .append("</a>");
   }
 
   private final int randomLineWidth=48;
