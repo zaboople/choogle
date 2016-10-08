@@ -79,6 +79,7 @@
     </copy>
   </target>
 
+  <target name="doc" description="JavaDoc" depends="javadoc"/>
   <target name="javadoc" description="JavaDoc">
     <mkdir dir="javadoc"/>
     <javadoc sourcepath="java" access="public" destdir="javadoc" packagenames="org.**,com.**">
@@ -89,6 +90,10 @@
     </javadoc>
   </target>
 
+
+  <!-- ********************* -->
+  <!-- TARGETS: DISTRIBUTION -->
+  <!-- ********************* -->
 
   <target name="jar" depends="compile">
     <mkdir dir ="${dist.dir}"/>
@@ -103,12 +108,6 @@
       </manifest>
     </jar>
   </target>
-
-
-
-  <!-- ********************* -->
-  <!-- TARGETS: DISTRIBUTION -->
-  <!-- ********************* -->
 
   <target name="dist" depends="_dist.src, jar"/>
 
