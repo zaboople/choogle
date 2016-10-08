@@ -86,7 +86,7 @@ public final class NettySiteConnection implements SiteConnection {
     if (log.is(1)) log.date().add("CONNECT: ").add(uri).lf();
     currChannel = MySiteConnector.connect(elGroup, myReceiver, uri);
     currChannel.closeFuture().addListener(
-      future -> {if (crawler!=null) crawler.onClose(this);}
+      future -> {if (crawler!=null) crawler.onClose();}
     );
   }
 

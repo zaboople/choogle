@@ -15,9 +15,10 @@ import org.tmotte.common.jettyserver.MyHandler;
 
 
 /**
- * This is an attempt to verify that
- * - Our web server is not pathetic
- * - Our database server is not pathetic
+ * This is an attempt to verify that <ol>
+ * <li> Our web server is not pathetic
+ * <li> Our database server is not pathetic
+ * </ol>
  */
 public class LoadTest implements MyHandler {
   private LoadTestHTML generator=new LoadTestHTML();

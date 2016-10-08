@@ -6,7 +6,10 @@ import org.tmotte.common.text.StringMatcher;
 import org.tmotte.common.text.StringMatcherStatic;
 import org.tmotte.common.text.StringMatcherChars;
 
-public final class AnchorReader { //FIXME why public?
+/**
+ * Parses HTML to extract 1) hyperlinks to other pages 2) the page title
+ */
+final class AnchorReader {
 
   /////////////////////////////////////
   // STATIC VARIABLES AND FUNCTIONS: //

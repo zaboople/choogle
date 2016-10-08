@@ -15,7 +15,7 @@ public class MyJettyServer {
    * @param port
    *   Just the port we want to listen on. HTTPS not supported sorry.
    * @param asyncPoolSize
-   *   If > 0, will try to take advantage of the new Servlet "asynchronous" specification.
+   *   If &gt; 0, will try to take advantage of the new Servlet "asynchronous" specification.
    *   Requests will be forked off into a separate thread pool of our own devising. Not
    *   necessarily useful, but interesting. NOTE: We have recently seen that this
    *   can cause problems under heavy request load - race conditions cause an internal error.

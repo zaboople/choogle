@@ -1,5 +1,8 @@
 package org.tmotte.common.text;
 
+/**
+ * An event handler called by HTMLParser as data comes through it.
+ */
 public interface HTMLParserListener {
 
   /**
@@ -7,6 +10,10 @@ public interface HTMLParserListener {
    */
   public void reset();
 
+  /**
+   * Called whenever text is encountered and it's not part of a tag name,
+   * attribute name/value, cdata, or comment.
+   */
   public boolean text(char c, boolean inScript);
 
   public boolean tagNameComplete(boolean isClosing, CharSequence cs);
@@ -14,7 +21,7 @@ public interface HTMLParserListener {
   /**
    * @param selfClosing means that the tag ends with /&gt;, so you
    *        should not expect a closing tag (refer to tagIsClosing()) to match it.
-   * @return true if you want to text() to be called with characters that come after.
+   * @return true if you want text() to be called with characters that come after.
    */
   public boolean tagComplete(boolean selfClosing);
 

@@ -17,14 +17,14 @@ public interface SiteConnection {
 
   /**
    * Should perform a HEAD request against the URI and call
-   * SiteReader.pageStart() & pageComplete() accordingly. There is no need
+   * SiteReader.pageStart() &amp; pageComplete() accordingly. There is no need
    * to call pageBody(), and pageStart() will return false to say as much.
    */
   public void doHead(URI uri) throws Exception;
 
   /**
    * Should perform a GET request against the URI and call
-   * SiteReader.pageStart(), pageBody() & pageComplete() accordingly.
+   * SiteReader.pageStart(), pageBody() &amp; pageComplete() accordingly.
    */
   public void doGet(URI uri) throws Exception;
 }

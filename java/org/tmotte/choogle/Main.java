@@ -13,6 +13,7 @@ import org.tmotte.common.text.Outlog;
  * Boots either a choogle crawler or a webserver that we use for testing.
  */
 public class Main {
+  /** Boots the application. Pass a --help or -h to get detailed usage information. */
   public static void main(String[] args) throws Exception {
     boolean handled=false;
     String arg0=args.length==0 ?null :args[0];

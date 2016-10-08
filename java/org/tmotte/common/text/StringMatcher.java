@@ -51,7 +51,7 @@ public final class StringMatcher {
 
   /**
    * Indicates that so far we have not failed.
-   * @returns True if we have a partial
+   * @return True if we have a partial
    * match, a full match, or are in our initial state
    * (just instantiated or after reset())
    */
