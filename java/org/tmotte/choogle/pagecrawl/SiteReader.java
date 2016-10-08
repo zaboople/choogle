@@ -3,11 +3,11 @@ import java.net.URI;
 
 /**
  * A SiteReader receives page/connection events from a SiteConnection. Both SiteCrawler
- * & SiteStarter are SiteReaders.
+ * and SiteStarter are SiteReaders.
  */
 public interface SiteReader {
 
-  public void onClose(SiteConnection sc) throws Exception; //FIXME we don't need the SiteConnection being sent to us.
+  public void onClose() throws Exception; //FIXME we don't need the SiteConnection being sent to us.
   public boolean pageStart(
     URI currentURI,
     boolean onHead,

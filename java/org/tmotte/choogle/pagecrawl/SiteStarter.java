@@ -110,7 +110,7 @@ class SiteStarter implements SiteReader{
   // OVERRIDES: //
   ////////////////
 
-  public @Override void onClose(SiteConnection sc) throws Exception {
+  public @Override void onClose() throws Exception {
     callOnClose.accept(this);
   }
 

@@ -142,7 +142,7 @@ class SiteCrawler implements SiteReader {
    * A new connection is opened by actually sending a message back to
    * WorldCrawler, which will invoke such in a separate Thread.
    */
-  public @Override void onClose(SiteConnection sc) throws Exception {
+  public @Override void onClose() throws Exception {
     callOnClose.accept(this);
   }
 
