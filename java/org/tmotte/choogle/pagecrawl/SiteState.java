@@ -17,7 +17,7 @@ class SiteState {
   private final int limit;
   private final boolean cacheResults;
 
-  private final AtomicInteger maxIndex=new AtomicInteger(0);
+  private final AtomicInteger maxConnIndex=new AtomicInteger(0);
   private final AtomicInteger count=new AtomicInteger(0);
   private final AtomicInteger connsAllowedRemaining;
   private final Queue<URI> scheduled;
@@ -39,7 +39,7 @@ class SiteState {
   int getCount()  {return count.get();}
   int getScheduledSize() {return scheduled.size();}
   int getElsewhereSize() {return elsewhere.size();}
-  int getNextIndex() {return maxIndex.incrementAndGet();}
+  int getNextConnIndex() {return maxConnIndex.incrementAndGet();}
   boolean moreConnsAllowed() {return connsAllowedRemaining.getAndDecrement()>1;}
   void moreConnsFailed() {connsAllowedRemaining.incrementAndGet();}
 

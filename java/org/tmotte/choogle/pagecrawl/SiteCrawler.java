@@ -63,7 +63,7 @@ class SiteCrawler implements SiteReader {
 
     // Copy some things from parent crawler:
     this.siteState=siteState;
-    this.index=siteState.getNextIndex();
+    this.index=siteState.getNextConnIndex();
 
     // Non-reuseable stuff:
     // 1. debugger needs a crawlKey that is instance-specific (handled later on)
