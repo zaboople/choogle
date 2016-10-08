@@ -1,5 +1,4 @@
 package org.tmotte.choogle.service;
-import com.mchange.v2.c3p0.ComboPooledDataSource;
 import java.io.PrintWriter;
 import java.util.Enumeration;
 import java.util.Map;
