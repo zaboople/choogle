@@ -36,9 +36,7 @@
   clean:
     Deletes all generated classes etc.
   jar:
-    Compiles and creates dist/${appname}.jar file from contents of ./build. This is an executable
-    jar, so double-clicking it should start the application if your java environment is properly
-    configured.
+    Compiles and creates dist/${appname}.jar file from contents of ./build.
   dist:
     Creates source zip &amp; binaries zip in dist directory. This does not include native
     executables, however.
@@ -112,17 +110,7 @@
   <!-- TARGETS: DISTRIBUTION -->
   <!-- ********************* -->
 
-  <target name="dist" depends="_dist.src,_dist.bin"/>
-
-  <target name="_dist.bin" depends="jar">
-    <mkdir dir ="${dist.dir}/bin"/>
-    <copy file="dist/${appname}.jar"   tofile="${dist.dir}/bin/${appname.version}.jar"/>
-    <zip destfile="${dist.dir}/${appname.version}.zip">
-      <zipfileset dir="${dist.dir}/bin" prefix="${appname.version}"/>
-    </zip>
-    <!--Cleanup:-->
-    <delete file="dist/klonk.jar"/>
-  </target>
+  <target name="dist" depends="_dist.src, jar"/>
 
   <target name="_dist.src" depends="clean">
     <mkdir dir ="${dist.dir}"/>
