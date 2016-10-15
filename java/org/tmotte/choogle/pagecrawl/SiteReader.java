@@ -7,7 +7,7 @@ import java.net.URI;
  */
 public interface SiteReader {
 
-  public void onClose() throws Exception; //FIXME we don't need the SiteConnection being sent to us.
+  public void onClose() throws Exception;
   public boolean pageStart(
     URI currentURI,
     boolean onHead,
