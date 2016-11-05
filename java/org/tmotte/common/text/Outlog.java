@@ -42,6 +42,10 @@ public final class Outlog {
     System.out.append("\n");
     return this;
   }
+  public Outlog add(Exception e) {
+    e.printStackTrace(System.out);
+    return this;
+  }
   public Outlog add(String s) {
     System.out.append(s);
     return this;

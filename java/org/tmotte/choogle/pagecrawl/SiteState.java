@@ -4,6 +4,8 @@ import java.util.ArrayDeque;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.Queue;
+import java.util.Queue;
+import java.util.stream.Stream;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -14,6 +16,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * with implicit thread safety.
  */
 class SiteState {
+  private final String siteName;
+  private final MyDB myDB;
   private final int limit;
   private final boolean cacheResults;
 
@@ -24,12 +28,23 @@ class SiteState {
   private final Set<String> scheduledSet;
   private final Set<URI>    elsewhere;
 
-  SiteState(long limit, int connsPer, boolean cacheResults) {
+  SiteState(String siteName, MyDB db, long limit, int connsPer, boolean cacheResults) throws Exception {
+    this.siteName=siteName;
+    this.myDB=db;
     this.limit=(int)limit;
     this.connsAllowedRemaining=new AtomicInteger(connsPer);
-    scheduled=new ConcurrentLinkedQueue<URI>();
-    scheduledSet=ConcurrentHashMap.newKeySet(this.limit);
-    elsewhere   =ConcurrentHashMap.newKeySet(this.limit);
+    int bufferSize=Math.min(1000, this.limit);
+    if (myDB!=null) {
+      scheduled=null;
+      scheduledSet=null;
+      elsewhere=null;
+      myDB.establish(siteName);
+    }
+    else {
+      scheduled=new ConcurrentLinkedQueue<>();
+      scheduledSet=ConcurrentHashMap.newKeySet(bufferSize);
+      elsewhere   =ConcurrentHashMap.newKeySet(bufferSize);
+    }
     this.cacheResults=cacheResults;
   }
 
@@ -37,7 +52,6 @@ class SiteState {
   // Simple gets:
   long getLimit() {return limit;}
   int getCount()  {return count.get();}
-  int getScheduledSize() {return scheduled.size();}
   int getElsewhereSize() {return elsewhere.size();}
   int getNextConnIndex() {return maxConnIndex.incrementAndGet();}
   boolean moreConnsAllowed() {return connsAllowedRemaining.getAndDecrement()>1;}
@@ -45,45 +59,85 @@ class SiteState {
 
   // Simple adds:
   void addCount() {count.incrementAndGet();}
-  void addElsewhere(URI maybe) {elsewhere.add(maybe);}
 
+
+  ////////////////////
+  // DATABASE TIME: //
+  ////////////////////
+
+
+  final int getScheduledSize() throws Exception {
+    return myDB==null ?scheduled.size() :myDB.getScheduledSize(siteName);
+  }
+  final boolean hasScheduled() throws Exception {
+    return getScheduledSize()>0;
+  }
 
   // Various ways of asking if we've crawled enough yet:
-  boolean notEnoughURLsForLimit(){
+  boolean notEnoughURLsForLimit() throws Exception {
     if (!cacheResults)
-      return scheduled.size() < 500;
+      return getScheduledSize() < 500;
     else
       return limit == -1 ||
-        getCount() + scheduled.size() < limit;
+        getCount() + getScheduledSize() < limit;
   }
   boolean lessThanLimit() {
     return limit == -1
       || getCount() < limit;
   }
-  boolean moreToCrawl() {
-    return lessThanLimit() && scheduled.size()>0;
+  boolean moreToCrawl() throws Exception {
+    return lessThanLimit() && getScheduledSize()>0;
   }
 
 
   // The more sophisticated path management stuff:
 
   /** Add the starting path so we know not to crawl it again. */
-  void addInitialPath(String path) {
-    scheduledSet.add(path);
-  }
-  /** Add a found URI if we haven't scheduled it already. */
-  void addPath(URI maybe) {
-    String raw = maybe.getRawPath();
-    if (!scheduledSet.contains(raw)) {
-      scheduled.add(maybe);
-      if (cacheResults)
-        scheduledSet.add(raw);
+  void addInitialPath(URI uri) throws Exception {
+    if (myDB==null)
+      scheduledSet.add(uri.getRawPath());
+    else {
+      myDB.addURI(siteName, uri.toString());
+      myDB.complete(siteName, uri.toString());
     }
   }
+  /** Add a found URI if we haven't scheduled it already. */
+  void addURIs(Stream<URI> maybes) throws Exception {
+    if (myDB==null)
+      maybes.forEach(maybe->{
+        String raw=maybe.getRawPath();
+        if (!scheduledSet.contains(raw)) {
+          scheduled.add(maybe);
+          if (cacheResults)
+            scheduledSet.add(raw);
+        }
+      });
+    else
+      myDB.addURIs(siteName, maybes.map(m -> m.toString()));
+  }
+  void addElsewhereURI(URI maybe) throws Exception {
+    if (myDB==null)
+      elsewhere.add(maybe);
+    else
+      myDB.addURI(
+        new URI(maybe.getScheme(), null, maybe.getHost(), maybe.getPort(), null, null, null).toString(),
+        maybe.toString()
+      );
+  }
   /** Call to the next scheduled URL for the current site. */
-  URI getNextForConnection() {
-    return scheduled.size() > 0
-      ?scheduled.poll()
-      :null;
+  URI getNextForConnection() throws Exception {
+    if (myDB==null)
+      return getScheduledSize() > 0
+        ?scheduled.poll()
+        :null;
+    else {
+      String raw=myDB.getNextURI(siteName);
+      if (raw==null) return null;
+      try {
+        return new URI(raw);
+      } catch (Exception e) {
+        throw new RuntimeException("Could not parse: "+raw);
+      }
+    }
   }
 }

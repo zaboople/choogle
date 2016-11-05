@@ -57,7 +57,6 @@ final class AnchorReader {
   // INPUTS + CONSTRUCTOR: //
   ///////////////////////////
 
-  //FIXME don't take as parameter
   private Collection<String> values;
   public AnchorReader(Collection<String> values, CharAppender charAppender) {
     this.values=values;
@@ -79,7 +78,6 @@ final class AnchorReader {
     parser.reset();
     bufURL.setLength(0);
     bufTitle.setLength(0);
-    listener.reset();//FIXME this also gets called by parser
   }
 
   ////////////////////////////

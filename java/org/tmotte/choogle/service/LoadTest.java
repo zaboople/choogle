@@ -11,6 +11,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import org.tmotte.common.jettyserver.MyHandler;
+import org.tmotte.choogle.util.DBConfig;
 
 
 /**
@@ -27,7 +28,7 @@ public class LoadTest implements MyHandler {
   public LoadTest(int debugLevel, boolean useDataSource) throws Exception {
     this.debugLevel=debugLevel;
     dataSource=useDataSource
-      ?DBConfig.getDataSource(debugLevel)
+      ?new DBConfig(debugLevel).get()
       :null;
   }
 

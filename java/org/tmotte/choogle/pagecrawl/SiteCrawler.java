@@ -3,13 +3,14 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.ArrayDeque;
 import java.util.Collection;
+import java.util.Optional;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 import org.tmotte.choogle.pagecrawl.AnchorReader;
 import org.tmotte.common.net.Link;
 import org.tmotte.common.text.Outlog;
-
 
 /**
  * Crawls a single web site until the connection is closed or the desired number of URLs is crawled.
@@ -100,7 +101,7 @@ class SiteCrawler implements SiteReader {
     this.siteKey=sitehost+":"+siteport;
     this.crawlKey=siteKey+"-C"+index;
     debugger.sitename=this.crawlKey;
-    siteState.addInitialPath(initialURI.getRawPath());
+    siteState.addInitialPath(initialURI);
     read(initialURI);
     return this;
   }
@@ -226,7 +227,7 @@ class SiteCrawler implements SiteReader {
       URI nextURI=siteState.getNextForConnection();
       if (nextURI!=null) {
         read(nextURI);
-        if (moreConnsAllowed && siteState.getScheduledSize()>10 && (moreConnsAllowed=siteState.moreConnsAllowed())){
+        if (moreConnsAllowed && siteState.hasScheduled() && (moreConnsAllowed=siteState.moreConnsAllowed())){
           nextURI=siteState.getNextForConnection();
           if (nextURI==null)
             siteState.moreConnsFailed();// Very very rare
@@ -244,7 +245,7 @@ class SiteCrawler implements SiteReader {
   }
 
 
-  final URI getReconnectURI() {
+  final URI getReconnectURI() throws Exception {
     if (siteState.moreToCrawl())
       return uriInFlight != null
         ?uriInFlight
@@ -265,26 +266,29 @@ class SiteCrawler implements SiteReader {
   }
 
 
-  private void addLinks(URI relativeTo) {
+  private void addLinks(URI relativeTo) throws Exception {
     if (siteState.notEnoughURLsForLimit())
-      for (String maybeStr: tempLinks) {
-        URI maybe=null;
-        try {
-          maybe=Link.getURI(relativeTo, maybeStr);
-        } catch (Exception e) {
-          e.printStackTrace();//FIXME add to list
-          continue;
-        }
-        if (maybe==null)
-          continue;
+      siteState.addURIs(
+        tempLinks.stream()
+          .map(maybeStr -> {
+            try {
+              URI maybe=Link.getURI(relativeTo, maybeStr);
 
-        // Only crawl it if it's the same host/scheme/port,
-        // otherwise you need to go to a different channel.
-        if (Link.sameSite(sitehost, sitescheme, siteport, maybe))
-          siteState.addPath(maybe);
-        else
-          siteState.addElsewhere(maybe);
-      }
+              // Only crawl it if it's the same host/scheme/port,
+              // otherwise you need to go to a different channel.
+              if (maybe!=null && !Link.sameSite(sitehost, sitescheme, siteport, maybe)){
+                siteState.addElsewhereURI(maybe);
+                maybe=null;
+              }
+              return Optional.ofNullable(maybe);
+            } catch (Exception e) {
+              log.date().add(e);
+              return Optional.ofNullable((URI)null);
+            }
+          })
+          .filter(maybe -> maybe.isPresent())
+          .map(maybe -> maybe.get())
+      );
     if (log.is(2))
       debugger.linkProcessing(
         siteState.getCount(),

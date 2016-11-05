@@ -17,7 +17,7 @@ public class Main {
   public static void main(String[] args) throws Exception {
     boolean handled=false;
     String arg0=args.length==0 ?null :args[0];
-    for (int i=0; i<args.length; i++) {
+    for (int i=0; i<args.length && !handled; i++) {
       if (args[i].equals("--help") || args[i].startsWith("-h"))
         handled=help();
       else
@@ -67,6 +67,7 @@ public class Main {
     long depth=1;
     boolean cacheResults=true;
     int connsPerSite=1;
+    boolean db=false, dbreset=true;
 
     int startURLs=0;
     for (int i=0; i<args.length; i++)
@@ -74,7 +75,7 @@ public class Main {
         //no-op
       }
       else
-      if (args[i].startsWith("--depth") || args[i].startsWith("-d")) {
+      if (args[i].startsWith("--depth") || args[i].startsWith("-de")) {
         int idnex=args[i].indexOf("=");
         String toParse=idnex > -1
           ?args[i].substring(idnex+1, args[i].length())
@@ -86,7 +87,7 @@ public class Main {
         }
       }
       else
-      if (args[i].startsWith("--conns") || args[i].startsWith("-co")){
+      if (args[i].startsWith("--conn") || args[i].startsWith("-co")){
         int idnex=args[i].indexOf("=");
         String toParse=idnex > -1
           ?args[i].substring(idnex+1, args[i].length())
@@ -98,11 +99,17 @@ public class Main {
         }
       }
       else
+      if (args[i].equals("--reset") || args[i].startsWith("-r"))
+        dbreset=true;
+      else
       if (args[i].equals("--verbose") || args[i].startsWith("-v"))
         debugLevel++;
       else
       if (args[i].equals("--no-cache") || args[i].startsWith("-n"))
         cacheResults=false;
+      else
+      if (args[i].equals("--db") || args[i].startsWith("-db"))
+        db=true;
       else
       if (args[i].startsWith("-"))
         return help("Unrecognized argument: "+args[i]);
@@ -113,7 +120,9 @@ public class Main {
 
     Outlog log=new Outlog().setLevel(debugLevel);
     List<String> urls=java.util.Arrays.asList(args).subList(startURLs, args.length);
-    if (urls.size()==0)
+    // The latter case here happens when startURLs ends up 0 because everything
+    // was a -config --option etc:
+    if (urls.size()==0 || urls.get(0).startsWith("-"))
       return help("Missing list of URLs");
     System.out.println(String.format(
       "\nCRAWLING URL(S): %s\n",
@@ -126,6 +135,7 @@ public class Main {
         try {factory.finish();}
         catch (Exception e) {e.printStackTrace();}
       },
+      db, dbreset,
       urls, depth, connsPerSite
     );
     return true;
@@ -137,11 +147,11 @@ public class Main {
   }
   private static boolean help(String error) throws Exception {
     Appendable a=error!=null ?System.err :System.out;
-    if (error!=null){
-      a.append("\n");
-      a.append(error);
-      a.append("\n");
-    }
+    if (error!=null)
+      a.append("\n")
+        .append("ERROR: ")
+        .append(error)
+        .append("\n");
     a.append(
       "\n"
     + "  Usage : java org.tmotte.choogle.Main \\\n "
@@ -155,9 +165,12 @@ public class Main {
     + "      --verbose:        Debugging information. Specify more than once for even more debugging. \n"
     + "      --depth:          Number of site URL's to traverse before walking away. If <#> is \n"
     + "                        -1, depth is unlimited. Default is 1. \n"
-    + "      --conns-per-site: Number of connections per site. Default is 1. \n"
+    + "      --conns-per-site: Number of connections per site. Default is 1. More is usually not helpful.\n"
     + "      --no-cache:       Do not track URL's already crawled. This is only useful when\n"
     + "                        using the client as a load-tester.\n"
+    + "      --db:             Use a postgres database to track URL's for greater scale. Requires\n"
+    + "                        environment variables for JDBC_URL, JDBC_USER & JDBC_PASS\n"
+    + "        --reset:        Clear previous tries from the database.\n"
     + "    <urls>:             A space-delimited list of url's to start crawling from. \n"
     );
     System.err.flush();

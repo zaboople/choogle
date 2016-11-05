@@ -15,17 +15,19 @@ public class WorldCrawler  {
   // use it for locking.
   private final WorldWatcher worldWatcher;
 
-  /** Convenience shortcut to new SiteCrawler(...).crawl(uris) */
+  /** Convenience shortcut to new SiteCrawler(...).crawl(...) */
   public static void crawl(
       Outlog log,
       SiteConnectionFactory factory,
       boolean cacheResults,
       Runnable onComplete,
+      boolean db,
+      boolean dbreset,
       List<String> uris,
       long limit,
       int connsPer
     ) throws Exception {
-    new WorldCrawler(log, factory, cacheResults, onComplete).crawl(uris, limit, connsPer);
+    new WorldCrawler(log, factory, cacheResults, onComplete, db, dbreset).crawl(uris, limit, connsPer);
   }
 
   /**
@@ -38,13 +40,15 @@ public class WorldCrawler  {
    *   cleanup/shutdown; we don't yet have site-by-site callbacks, which is obviously needed (and not hard).
    */
   public WorldCrawler(
-      Outlog log, SiteConnectionFactory factory, boolean cacheResults, Runnable onComplete
-    ){
+      Outlog log, SiteConnectionFactory factory, boolean cacheResults, Runnable onComplete, boolean db, boolean dbreset
+    ) throws Exception {
     this.worldWatcher=new WorldWatcher(
       log,
       factory,
       cacheResults,
-      onComplete
+      onComplete,
+      db,
+      dbreset
     );
   }
 

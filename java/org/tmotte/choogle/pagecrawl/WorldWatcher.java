@@ -12,8 +12,8 @@ import org.tmotte.common.text.Outlog;
 /**
  * Does most of the work that WorldCrawler should be doing, but hides out in the
  * background so WorldCrawler can have the glory.
- *
- * Manages the SiteStarters that find the actual web site, and the SiteCrawlers that
+ * <br>
+ * More importantly, manages the SiteStarters that find the actual web site, and the SiteCrawlers that
  * crawl it. We found that Netty is very fussy about opening connections from a thread
  * that receives a connection close event (throws an exception about making a blocking call), and is
  * also somewhat unreliable about connection close events, so WorldWatcher maintains a lone independent
@@ -26,6 +26,7 @@ class WorldWatcher {
   private final SiteConnectionFactory connFactory;
   private final boolean cacheResults;
   private final Runnable callOnAllDone;
+  private final MyDB myDB;
 
   // Just for logging:
   private final long startTime=System.currentTimeMillis();
@@ -41,12 +42,16 @@ class WorldWatcher {
       Outlog log,
       SiteConnectionFactory factory,
       boolean cacheResults,
-      Runnable callOnAllDone
-    ) {
+      Runnable callOnAllDone,
+      boolean db,
+      boolean dbreset
+    ) throws Exception {
     this.log=log;
     this.connFactory=factory;
     this.cacheResults=cacheResults;
     this.callOnAllDone=callOnAllDone;
+    myDB=db ?new MyDB(log, dbreset) :null;
+
 
     debug=new WorldWatcherDebug(log);
     new Thread(
@@ -57,13 +62,22 @@ class WorldWatcher {
   void crawl(List<String> uris, long limit, int connsPer) throws Exception {
     addToCount(uris.size());
     for (String uri : uris){
+      uri=uri.trim();
       if (!uri.startsWith("http"))
         uri="http://"+uri;
-      new SiteStarter(
-        log, connFactory,
-        new SiteState(limit, connsPer, cacheResults),
-        this::siteStartStopped
-      ).start(uri);
+      try {
+        new SiteStarter(
+          log, connFactory,
+          new SiteState(uri, myDB, limit, connsPer, cacheResults),
+          this::siteStartStopped
+        ).start(uri);
+      } catch (Exception e) {
+        e.printStackTrace();
+        synchronized (this) {
+          sitesDone++;
+          this.notify();
+        }
+      }
     }
   }
 
@@ -79,7 +93,7 @@ class WorldWatcher {
   private synchronized void addToCount(int more) {
     siteCount+=more;
   }
-  private synchronized void siteStartStopped(SiteStarter ss) { //FIXME make it private, pull the
+  private synchronized void siteStartStopped(SiteStarter ss) {
     siteStarts.add(ss);
     this.notify();
   }
@@ -88,10 +102,13 @@ class WorldWatcher {
     sitesClosed.add(sc);
     this.notify();
   }
+  private synchronized boolean checkDone() {
+    return sitesDone==siteCount;
+  }
   private synchronized boolean incrementDone() {
     sitesDone++;
     debug.siteDone(sitesDone, siteCount);
-    return sitesDone==siteCount;
+    return checkDone();
   }
   private boolean incrementFail(String why) {
     System.out.println(why);
@@ -103,9 +120,6 @@ class WorldWatcher {
   private static class SiteData {
     URI uri;
     SiteState siteState;
-    public SiteData(URI uri, long limit, int connsPer, boolean cacheResults) {
-      this(uri, new SiteState(limit, connsPer, cacheResults));
-    }
     public SiteData(URI uri, SiteState siteState) {
       this.uri=uri;
       this.siteState=siteState;
@@ -133,11 +147,13 @@ class WorldWatcher {
     while (true) {
 
       synchronized(this) {
+
         // Wait for notification from a site:
         try {this.wait();}
           catch (InterruptedException e) {
             e.printStackTrace();
           }
+        allDone=checkDone();
 
         // Now schedule redirects and find out if we're done:
         for (SiteStarter ss: siteStarts) {
@@ -164,21 +180,24 @@ class WorldWatcher {
         siteStarts.clear();
 
         // Now schedule recrawls and find out if we're done:
-        for (SiteCrawler sc: sitesClosed) {
-          String key=sc.getConnectionKey();
-          URI uri=sc.getReconnectURI();
-          debug.reconnectCheck(sc);
-          if (!alreadyRetried.contains(key)){
-            alreadyRetried.add(key);
-            if (uri!=null)
-              recrawls.add(new SiteData(uri, sc.getSiteState()));
-            else
-            if (!alreadyDone.contains(sc.getSiteKey())) {
-              alreadyDone.add(sc.getSiteKey());
-              allDone=incrementDone();
+        for (SiteCrawler sc: sitesClosed)
+          try {
+            String key=sc.getConnectionKey();
+            URI uri=sc.getReconnectURI();
+            debug.reconnectCheck(sc);
+            if (!alreadyRetried.contains(key)){
+              alreadyRetried.add(key);
+              if (uri!=null)
+                recrawls.add(new SiteData(uri, sc.getSiteState()));
+              else
+              if (!alreadyDone.contains(sc.getSiteKey())) {
+                alreadyDone.add(sc.getSiteKey());
+                allDone=incrementDone();
+              }
             }
+          } catch (Exception e) {
+            e.printStackTrace();
           }
-        }
         sitesClosed.clear();
       }
 
@@ -187,6 +206,7 @@ class WorldWatcher {
       // Note that all of this can be done non-synchronously
       // because we're leaving class state alone.
       retry(redirects, recrawls);
+
       if (allDone) {
         debug.done(startTime);
         callOnAllDone.run();
