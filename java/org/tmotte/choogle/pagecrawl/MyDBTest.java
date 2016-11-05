@@ -4,20 +4,23 @@ import java.util.stream.Collectors;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import org.tmotte.common.text.Outlog;
 
 public class MyDBTest {
   public static void main(String[] args) throws Exception {
-    test(new MyDB(new org.tmotte.common.text.Outlog(), true));
+    test();
   }
 
-  private static void test(MyDB db) throws Exception {
+  private static void test() throws Exception {
+    Outlog log = new Outlog().setLevel(1);
+    MyDB db=new MyDB(log, true);
     String site="hello.com";
     db.truncate(site);
     db.establish(site);
 
     final AtomicInteger count=new AtomicInteger();
     int urlCount=3000;
-    int readerThreads=1, writerThreads=3;
+    int readerThreads=1, writerThreads=1;
     int urlsPerWriter=2 * urlCount/writerThreads;
 
     List<Thread>
@@ -31,7 +34,8 @@ public class MyDBTest {
                 .limit(urlsPerWriter)
                 .map(j->"/putter/"+(i/2)+"/"+j)
             );
-            System.out.println("\n** DONE PUTTER ** "+i+" "+myCount);
+            if (log.is(1))
+              log.add("** DONE PUTTER ** ", i, " ", myCount);
           }
         )
       )
@@ -41,14 +45,18 @@ public class MyDBTest {
         i-> runnable(
           ()->{
             String s;
+            int threadCount=0;
             while (
                 (s=db.getNextURI(site))!=null
               ){
-              System.out.println(i+" ->"+s);
+              if (log.is(2))
+                log.add(i, " ->", s);
               count.incrementAndGet();
               db.complete(site, s);
+              threadCount++;
             }
-            System.out.println("\n ** DONE GETTER ** "+i);
+            if (log.is(1))
+              log.add("** DONE GETTER ** ", i, " ", threadCount);
           }
         )
       );
@@ -66,13 +74,13 @@ public class MyDBTest {
 
     double timeTaken=(double)(System.nanoTime()-startTime) / (1000D*1000D*1000D);
 
-    System.out.println(
+    log.lf().add(
       "Pulled: "+count.get()+" in: "+timeTaken+" seconds = "+
       (
         ((double)count.get()) / timeTaken
       )+ " urls/second "
     );
-    System.out.println("Outstanding: "+db.getScheduledSize(site));
+    log.lf().add("Outstanding: "+db.getScheduledSize(site));
     db.close();
   }
 
@@ -89,7 +97,7 @@ public class MyDBTest {
   }
 
   private static List<Thread> streamIt(int threadLimit, Function<Integer, Runnable> consumer) {
-    return Stream.iterate(2, x->x+1)
+    return Stream.iterate(1, x->x+1)
       .limit(threadLimit)
       .map(
         i->consumer.apply(i)
