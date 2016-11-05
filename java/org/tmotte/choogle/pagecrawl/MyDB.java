@@ -126,17 +126,6 @@ class MyDB {
       );
     }
   }
-  boolean hasMore(String site) throws Exception {
-    try (
-        Connection conn=hds.getConnection();
-        PreparedStatement ps=hds.prepare(
-          conn, "select 1 from url_queue uq where uq.site=? and uq.locked=false and uq.deleted=false", site
-        )
-      ){
-      return hds.withQueryResult(ps, rs -> rs.next());
-    }
-  }
-
 
   private String insertQueueSQL=
     "insert into url_queue(site, uri, locked, deleted) "+
