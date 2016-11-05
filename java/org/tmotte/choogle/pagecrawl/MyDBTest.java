@@ -17,7 +17,7 @@ public class MyDBTest {
 
     final AtomicInteger count=new AtomicInteger();
     int urlCount=3000;
-    int readerThreads=8, writerThreads=2;
+    int readerThreads=1, writerThreads=3;
     int urlsPerWriter=2 * urlCount/writerThreads;
 
     List<Thread>
@@ -66,7 +66,12 @@ public class MyDBTest {
 
     double timeTaken=(double)(System.nanoTime()-startTime) / (1000D*1000D*1000D);
 
-    System.out.println("Pulled: "+count.get()+" in: "+timeTaken+" seconds");
+    System.out.println(
+      "Pulled: "+count.get()+" in: "+timeTaken+" seconds = "+
+      (
+        ((double)count.get()) / timeTaken
+      )+ " urls/second "
+    );
     System.out.println("Outstanding: "+db.getScheduledSize(site));
     db.close();
   }
