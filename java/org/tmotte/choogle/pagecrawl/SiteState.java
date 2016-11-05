@@ -86,7 +86,7 @@ class SiteState {
       || getCount() < limit;
   }
   boolean moreToCrawl() throws Exception {
-    return lessThanLimit() && getScheduledSize()>0;
+    return lessThanLimit() && hasScheduled();
   }
 
 
