@@ -6,57 +6,77 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.tmotte.common.text.Outlog;
 
+/**
+ * This seems to run optimally with 1 readers and 4 writers.
+ */
 public class MyDBTest {
   public static void main(String[] args) throws Exception {
-    test();
+    if (args.length < 3) {
+      System.err.println("Usage: java org.tmotte.choogle.pagecrawl.MyDBTest <logLevel> <readThreads> <writeThreads>");
+    }
+    int logLevel=Integer.parseInt(args[0]);
+    int readThreads=Integer.parseInt(args[1]);
+    int writeThreads=Integer.parseInt(args[2]);
+    test(logLevel, readThreads, writeThreads);
   }
 
-  private static void test() throws Exception {
-    Outlog log = new Outlog().setLevel(1);
+  private static void test(int logLevel, int readerThreads, int writerThreads) throws Exception {
+    Outlog log = new Outlog().setLevel(logLevel);
     MyDB db=new MyDB(log, true);
     String site="hello.com";
     db.truncate(site);
     db.establish(site);
 
     final AtomicInteger count=new AtomicInteger();
-    int urlCount=3000;
-    int readerThreads=1, writerThreads=1;
-    int urlsPerWriter=2 * urlCount/writerThreads;
+    final int urlCount=10000;
+    final int urlsPerWriter=urlCount/writerThreads;
+    final int overlap=1000;
+    final int urisPerRead=300;
 
     List<Thread>
-      putters=streamIt(
+      putters=makeThreads(
         writerThreads,
-        i-> runnable(
+        threadIndex-> runnable(
           ()->{
+            int firstURLIndex=(threadIndex-1) * urlsPerWriter;
             int myCount=db.addURIs(
               site,
-              Stream.iterate(1, x->x+1)
-                .limit(urlsPerWriter)
-                .map(j->"/putter/"+(i/2)+"/"+j)
+              Stream.iterate(firstURLIndex, x->x+1)
+                .limit(urlsPerWriter+overlap)
+                .map(x->"/putter/"+x)
             );
             if (log.is(1))
-              log.add("** DONE PUTTER ** ", i, " ", myCount);
+              log.add("** DONE PUTTER ** ", threadIndex, " ", myCount);
           }
         )
       )
       ,
-      getters=streamIt(
+      getters=makeThreads(
         readerThreads,
         i-> runnable(
           ()->{
-            String s;
-            int threadCount=0;
-            while (
-                (s=db.getNextURI(site))!=null
-              ){
+            int thisCount=0;
+            int breaks=5;
+            List<String> uris=new java.util.ArrayList<>();
+            while (true){
+              db.getNextURIs(site, uris, urisPerRead);
+
+              if (uris.size()==0)  breaks--;
+              else if (breaks<5) breaks++;
+              if (breaks<=0) break;
+
               if (log.is(2))
-                log.add(i, " ->", s);
-              count.incrementAndGet();
-              db.complete(site, s);
-              threadCount++;
+                log.add("GETTER ", i, " URIS: ", uris.size());
+              for (String s: uris) {
+                if (log.is(3))
+                  log.add(i, " ->", s);
+                count.incrementAndGet();
+                thisCount++;
+              }
+              uris.clear();
             }
             if (log.is(1))
-              log.add("** DONE GETTER ** ", i, " ", threadCount);
+              log.add("** DONE GETTER ** ", i, " ", thisCount);
           }
         )
       );
@@ -96,7 +116,7 @@ public class MyDBTest {
     runnable(d).run();
   }
 
-  private static List<Thread> streamIt(int threadLimit, Function<Integer, Runnable> consumer) {
+  private static List<Thread> makeThreads(int threadLimit, Function<Integer, Runnable> consumer) {
     return Stream.iterate(1, x->x+1)
       .limit(threadLimit)
       .map(

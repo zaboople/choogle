@@ -96,9 +96,9 @@ class MyDB {
     hds.runUpdate("delete from url_queue where deleted=true and site=?", site);
   }
 
-  ///////////////////
-  // MANIPULATION: //
-  ///////////////////
+  //////////////
+  // RUNTIME: //
+  //////////////
 
   void establish(String site) throws Exception {
     hds.runUpdate(
@@ -107,24 +107,6 @@ class MyDB {
      ,
      site, site
     );
-  }
-
-  int getScheduledSize(String site) throws Exception {
-    try (
-        Connection conn=hds.getConnection();
-        PreparedStatement ps=
-          hds.prepare(
-            conn, "select count(*) from url_queue uq where uq.site=? and uq.locked=false and uq.deleted=false", site
-          );
-      ){
-      return hds.withQueryResult(
-        ps,
-        rs -> {
-          if (rs.next()) return rs.getInt(1);
-          else return 0;
-        }
-      );
-    }
   }
 
   private String insertQueueSQL=
@@ -149,9 +131,29 @@ class MyDB {
       ));
     }
   }
+
+  int getScheduledSize(String site) throws Exception {
+    try (
+        Connection conn=hds.getConnection();
+        PreparedStatement ps=
+          hds.prepare(
+            conn, "select count(*) from url_queue uq where uq.site=? and uq.locked=false and uq.deleted=false", site
+          );
+      ){
+      return hds.withQueryResult(
+        ps, rs -> {
+          if (rs.next()) return rs.getInt(1);
+          return 0;
+        }
+      );
+    }
+  }
+
   void addURI(String site, String uri) throws Exception {
     hds.runUpdate(insertQueueSQL, site, uri, site, uri);
   }
+
+  /** This only gets one URL at a time, so it's slow. Also refer to getNextURIs() */
   String getNextURI(String site) throws Exception {
     String
       lockSQL=
@@ -188,6 +190,47 @@ class MyDB {
       );
     }
   }
+  void getNextURIs(String site, Collection<String> uris, int limit) throws Exception {
+    String
+      lockSQL=
+        "update url_queue set locked=true, deleted=true where (id between ? and ?) and locked=false and deleted=false"
+      ,
+      selectSQL=
+        "select id, uri from url_queue uq where uq.site=? and uq.locked=false and uq.deleted=false order by id"
+      ;
+    try (
+        Connection conn=hds.getTransaction();
+        PreparedStatement psQuery=hds.prepare(conn, selectSQL, site)
+      ){
+      lockSite(conn, site);
+      // We MUST use a transaction & set these parameters as such or the driver will
+      // try to load the entire resultset into memory on our first rs.next():
+      // https://jdbc.postgresql.org/documentation/83/query.html#query-with-cursor
+      psQuery.setFetchSize(2);
+      psQuery.setFetchDirection(ResultSet.FETCH_FORWARD);
+      //
+      hds.withQuery(
+        psQuery,
+        rs -> {
+          Object minId=null, maxId=null;
+          int found=0;
+          while (rs.next() && found<limit-1) {
+            found++;
+            maxId=rs.getObject(1);
+            if (minId==null)
+              minId=maxId;
+            String uri=rs.getString(2);
+            uris.add(uri);
+          }
+          if (minId!=null && maxId!=null)
+            hds.runUpdate(conn, lockSQL, minId, maxId);
+          conn.commit();
+        }
+      );
+    }
+  }
+
+  /** FIXME this should probably just go. Both getNextURI() & getNextURIs() mark the records as deleted immediately. */
   boolean complete(String site, String uri) throws Exception {
     try (Connection conn=hds.getTransaction()) {
       lockSite(conn, site);
