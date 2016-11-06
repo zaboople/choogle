@@ -190,6 +190,11 @@ class MyDB {
       );
     }
   }
+
+  /**
+   * Gets a large number of URIs for crawling at once. These are marked as deleted
+   * immediately, so if they are not crawled, they are effectively lost.
+   */
   void getNextURIs(String site, Collection<String> uris, int limit) throws Exception {
     String
       lockSQL=
