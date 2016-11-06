@@ -42,6 +42,13 @@ public final class Outlog {
     System.out.append("\n");
     return this;
   }
+  public Outlog add(Object... x) {
+    StringBuilder sb=new StringBuilder();
+    for (Object o: x)
+      sb.append(o);
+    System.out.println(sb);
+    return this;
+  }
   public Outlog add(Exception e) {
     e.printStackTrace(System.out);
     return this;
