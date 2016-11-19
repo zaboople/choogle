@@ -1,3 +1,4 @@
+#!/bin/bash
 # You should be able to run this repeatedly without shutting down.
 docker-machine start dev
 eval $(docker-machine env dev)
