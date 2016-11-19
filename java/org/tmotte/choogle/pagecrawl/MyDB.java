@@ -119,6 +119,8 @@ class MyDB {
         Connection conn=hds.getConnection();
         PreparedStatement psInsert=conn.prepareStatement(insertQueueSQL);
       ){
+      if (log.is(2))
+        log.date().add("MyDB.addURIs() ", site);
       return uris.collect(Collectors.summingInt(
         uri->{
           try {
@@ -131,27 +133,31 @@ class MyDB {
       ));
     }
   }
+  void addURI(String site, String uri) throws Exception {
+    hds.runUpdate(insertQueueSQL, site, uri, site, uri);
+  }
 
   int getScheduledSize(String site) throws Exception {
+    return getSize(
+      site, "select count(*) from url_queue uq where uq.site=? and uq.locked=false and uq.deleted=false"
+    );
+  }
+  int getElsewhereSize(String site) throws Exception {
+    return getSize(
+      site, "select count(*) from url_queue uq where uq.site<>? and uq.locked=false and uq.deleted=false"
+    );
+  }
+  private int getSize(String site, String sql) throws Exception {
     try (
         Connection conn=hds.getConnection();
-        PreparedStatement ps=
-          hds.prepare(
-            conn, "select count(*) from url_queue uq where uq.site=? and uq.locked=false and uq.deleted=false", site
-          );
+        PreparedStatement ps=hds.prepare(conn, sql, site);
       ){
       return hds.withQueryResult(
-        ps, rs -> {
-          if (rs.next()) return rs.getInt(1);
-          return 0;
-        }
+        ps, rs -> rs.next() ?rs.getInt(1) :0
       );
     }
   }
 
-  void addURI(String site, String uri) throws Exception {
-    hds.runUpdate(insertQueueSQL, site, uri, site, uri);
-  }
 
   /** This only gets one URL at a time, so it's slow. Also refer to getNextURIs() */
   String getNextURI(String site) throws Exception {
@@ -195,7 +201,9 @@ class MyDB {
    * Gets a large number of URIs for crawling at once. These are marked as deleted
    * immediately, so if they are not crawled, they are effectively lost.
    */
-  void getNextURIs(String site, Collection<String> uris, int limit) throws Exception {
+  void getNextURIs(String site, int limit, java.util.function.Consumer<String> consumer) throws Exception {
+    if (log.is(2))
+      log.date().add("MyDB.getNextURIs() ", site);
     String
       lockSQL=
         "update url_queue set locked=true, deleted=true where (id between ? and ?) and locked=false and deleted=false"
@@ -225,7 +233,7 @@ class MyDB {
             if (minId==null)
               minId=maxId;
             String uri=rs.getString(2);
-            uris.add(uri);
+            consumer.accept(uri);
           }
           if (minId!=null && maxId!=null)
             hds.runUpdate(conn, lockSQL, minId, maxId);

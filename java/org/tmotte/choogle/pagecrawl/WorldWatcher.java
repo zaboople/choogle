@@ -68,7 +68,7 @@ class WorldWatcher {
       try {
         new SiteStarter(
           log, connFactory,
-          new SiteState(uri, myDB, limit, connsPer, cacheResults),
+          new SiteState(log, uri, myDB, limit, connsPer, cacheResults),
           this::siteStartStopped
         ).start(uri);
       } catch (Exception e) {

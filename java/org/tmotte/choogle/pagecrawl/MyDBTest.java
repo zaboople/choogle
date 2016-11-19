@@ -59,7 +59,7 @@ public class MyDBTest {
             int breaks=5;
             List<String> uris=new java.util.ArrayList<>();
             while (true){
-              db.getNextURIs(site, uris, urisPerRead);
+              db.getNextURIs(site, urisPerRead, s -> uris.add(s));
 
               if (uris.size()==0)  breaks--;
               else if (breaks<5) breaks++;

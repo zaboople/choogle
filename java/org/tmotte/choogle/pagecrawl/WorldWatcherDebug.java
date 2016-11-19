@@ -10,8 +10,17 @@ class WorldWatcherDebug {
   }
 
   void onClose(SiteCrawler sc) {
-    if (log.is(1))
-      log.date().add(sc.getConnectionKey()).add(" CONNECTION CLOSE DETECTED").lf();
+    if (log.is(1)) {
+      int outstanding=0;
+      try {
+        outstanding = sc.getSiteState().getScheduledSize();
+      } catch (Exception e) {}
+      log.date()
+        .add(sc.getConnectionKey())
+        .add(" CONNECTION CLOSE DETECTED; OUTSTANDING: ")
+        .add(outstanding)
+        .lf();
+    }
   }
   void redirect(URI uri) {
     if (log.is(1))
@@ -50,7 +59,6 @@ class WorldWatcherDebug {
       } catch (Exception e) {
         e.printStackTrace();
       }
-
   }
 
 }
