@@ -2,6 +2,7 @@ package org.tmotte.choogle;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 import org.tmotte.choogle.pagecrawl.WorldCrawler;
 import org.tmotte.choogle.pagecrawlnetty.NettyConnectionFactory;
@@ -68,8 +69,8 @@ public class Main {
     boolean cacheResults=true;
     int connsPerSite=1;
     boolean db=false, dbreset=true;
+    List<String> urls=new ArrayList<>();
 
-    int startURLs=0;
     for (int i=0; i<args.length; i++)
       if (args[i].equals("--client") || args[i].startsWith("-cl")){
         //no-op
@@ -113,16 +114,11 @@ public class Main {
       else
       if (args[i].startsWith("-"))
         return help("Unrecognized argument: "+args[i]);
-      else {
-        startURLs=i;
-        break;
-      }
+      else
+        urls.add(args[i]);
 
     Outlog log=new Outlog().setLevel(debugLevel);
-    List<String> urls=java.util.Arrays.asList(args).subList(startURLs, args.length);
-    // The latter case here happens when startURLs ends up 0 because everything
-    // was a -config --option etc:
-    if (urls.size()==0 || urls.get(0).startsWith("-"))
+    if (urls.size()==0)
       return help("Missing list of URLs");
     System.out.println(String.format(
       "\nCRAWLING URL(S): %s\n",
