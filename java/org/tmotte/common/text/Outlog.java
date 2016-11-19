@@ -9,7 +9,7 @@ package org.tmotte.common.text;
 public final class Outlog {
 
   private int level=0;
-  private String dateFormat="%1$tY-%1$tm-%1$td %1$tH:%1$tM:%1$tS%1$tz ";
+  private String dateFormat="%1$tY-%1$tm-%1$td %1$tH:%1$tM:%1$tS.%1$tL%1$tz ";
 
   public Outlog setLevel(int level) {
     this.level=level;
@@ -42,6 +42,7 @@ public final class Outlog {
     System.out.append("\n");
     return this;
   }
+  /** Logs everything and then calls lf() */
   public Outlog add(Object... x) {
     StringBuilder sb=new StringBuilder();
     for (Object o: x)
