@@ -85,6 +85,10 @@ public class HotRodDataSource {
     prepare(ps, args);
     return ps.executeUpdate();
   }
+  public void runBatch(PreparedStatement ps, Object... args) throws Exception {
+    prepare(ps, args);
+    ps.addBatch();
+  }
   public PreparedStatement prepare(Connection conn, String sql, Object... args) throws Exception {
     return prepare(
       conn.prepareStatement(sql), args
