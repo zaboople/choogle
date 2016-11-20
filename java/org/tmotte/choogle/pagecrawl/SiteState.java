@@ -100,10 +100,8 @@ class SiteState {
   void addInitialPath(URI uri) throws Exception {
     if (myDB==null)
       scheduledSet.add(uri.getRawPath());
-    else {
-      myDB.addURI(siteName, uri.toString());
-      myDB.complete(siteName, uri.toString());
-    }
+    else
+      myDB.addURI(siteName, uri.toString(), true);
   }
   /** Add a found URI if we haven't scheduled it already. */
   void addURIs(Stream<URI> maybes) throws Exception {
@@ -130,7 +128,8 @@ class SiteState {
     else
       myDB.addURI(
         new URI(maybe.getScheme(), null, maybe.getHost(), maybe.getPort(), null, null, null).toString(),
-        maybe.toString()
+        maybe.toString(),
+        false
       );
   }
   /** Call to the next scheduled URL for the current site. */

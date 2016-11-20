@@ -6,6 +6,7 @@ import java.sql.Statement;
 import java.util.Collection;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.IntStream;
 import javax.sql.DataSource;
 import org.tmotte.choogle.util.DBConfig;
 import org.tmotte.common.db.HotRodDataSource;
@@ -111,7 +112,7 @@ class MyDB {
 
   private String insertQueueSQL=
     "insert into url_queue(site, uri, locked, deleted) "+
-      "select ?, ?, false, false where not exists ( "+
+      "select ?, ?, ?, ? where not exists ( "+
       "  select 1 from url_queue where site=? and uri=?"+
       ")";
   int addURIs(String site, Stream<String> uris) throws Exception {
@@ -121,20 +122,28 @@ class MyDB {
       ){
       if (log.is(2))
         log.date().add("MyDB.addURIs() ", site);
-      return uris.collect(Collectors.summingInt(
+      uris.forEach(
         uri->{
           try {
-            return hds.runUpdate(psInsert, site, uri, site, uri);
+            hds.runBatch(
+              psInsert,
+              site, uri, false, false,
+              site, uri
+            );
           } catch (Exception e) {
             log.date().add(e);
-            return 0;
           }
         }
-      ));
+      );
+      return IntStream.of(psInsert.executeBatch()).sum();
     }
   }
-  void addURI(String site, String uri) throws Exception {
-    hds.runUpdate(insertQueueSQL, site, uri, site, uri);
+  void addURI(String site, String uri, boolean done) throws Exception {
+    hds.runUpdate(
+      insertQueueSQL,
+      site, uri, done, done,
+      site, uri
+    );
   }
 
   int getScheduledSize(String site) throws Exception {
@@ -206,7 +215,8 @@ class MyDB {
       log.date().add("MyDB.getNextURIs() ", site);
     String
       lockSQL=
-        "update url_queue set locked=true, deleted=true where (id between ? and ?) and locked=false and deleted=false"
+        "update url_queue set locked=true, deleted=true "
+       +" where site=? and (id between ? and ?) and locked=false and deleted=false"
       ,
       selectSQL=
         "select id, uri from url_queue uq where uq.site=? and uq.locked=false and uq.deleted=false order by id"
@@ -236,7 +246,7 @@ class MyDB {
             consumer.accept(uri);
           }
           if (minId!=null && maxId!=null)
-            hds.runUpdate(conn, lockSQL, minId, maxId);
+            hds.runUpdate(conn, lockSQL, site, minId, maxId);
           conn.commit();
         }
       );
@@ -244,7 +254,7 @@ class MyDB {
   }
 
   /** FIXME this should probably just go. Both getNextURI() & getNextURIs() mark the records as deleted immediately. */
-  boolean complete(String site, String uri) throws Exception {
+  private boolean complete(String site, String uri) throws Exception {
     try (Connection conn=hds.getTransaction()) {
       lockSite(conn, site);
       return hds.runUpdate(
