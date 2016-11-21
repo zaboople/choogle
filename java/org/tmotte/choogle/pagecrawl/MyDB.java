@@ -14,7 +14,7 @@ import org.tmotte.common.text.Outlog;
 
 /**
  * This does not prevent accidental duplicate crawls, but it does prevent different crawlers
- * from causing deadlocks with another.
+ * from causing deadlocks with each other.
  */
 class MyDB {
 
@@ -214,12 +214,13 @@ class MyDB {
     if (log.is(2))
       log.date().add("MyDB.getNextURIs() ", site);
     String
+      selectSQL=
+        "select id, uri from url_queue uq "
+       +" where uq.site=? and uq.locked=false and uq.deleted=false order by id"
+      ,
       lockSQL=
         "update url_queue set locked=true, deleted=true "
        +" where site=? and (id between ? and ?) and locked=false and deleted=false"
-      ,
-      selectSQL=
-        "select id, uri from url_queue uq where uq.site=? and uq.locked=false and uq.deleted=false order by id"
       ;
     try (
         Connection conn=hds.getTransaction();
@@ -253,7 +254,11 @@ class MyDB {
     }
   }
 
-  /** FIXME this should probably just go. Both getNextURI() & getNextURIs() mark the records as deleted immediately. */
+  /**
+   * No longer in use, but could make a comeback. It was faster to just mark items in the
+   * queue immediately when we download a batch and not worry about whether we get killed
+   * before reading them.
+   */
   private boolean complete(String site, String uri) throws Exception {
     try (Connection conn=hds.getTransaction()) {
       lockSite(conn, site);
